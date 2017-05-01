@@ -72,12 +72,13 @@ class Paid implements ObserverInterface
         /* @var $oOrder Order */
         $oOrder = $observer->getOrder();
 
-        // order is not guaranteed to exist if using transaction status forwarding
-        if (null === $oOrder){
-            return;
-        }
-
-//          if invoice already created
+<<<<<<< Updated upstream
+        $oInvoice = $this->invoiceService->prepareInvoice($oOrder);
+        $oInvoice->setRequestedCaptureCase(Invoice::CAPTURE_OFFLINE);
+        $oInvoice->setTransactionId($oOrder->getPayment()->getLastTransId());
+        $oInvoice->register();
+=======
+//        if invoice already created
         $oInvoice  = $this->getOpenInvoice($oOrder);
         if ($oInvoice) {
             $oInvoice->pay();
@@ -89,6 +90,7 @@ class Paid implements ObserverInterface
             $oInvoice->register();
         }
 
+>>>>>>> Stashed changes
         $oInvoice->save();
         $oInvoice->getOrder()->save();  // not use $order->save() as this comes from event and is not updated during $oInvoice->pay() => all changes would be lost
     }
