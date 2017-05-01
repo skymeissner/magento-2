@@ -81,6 +81,7 @@ class Paid implements ObserverInterface
         $oInvoice  = $this->getOpenInvoice($oOrder);
         if ($oInvoice) {
             $oInvoice->pay();
+            $oInvoice->setForcePay(true);       // for pre-authorization
             $oInvoice->setTransactionId($oOrder->getPayment()->getLastTransId());
         } else {
             $oInvoice = $this->invoiceService->prepareInvoice($oOrder);
