@@ -63,6 +63,8 @@ class Authorization extends AddressRequest
      */
     protected $toolkitHelper;
 
+    protected $icrmAuth;
+
     /**
      * Map for custom parameters to be added $sParamName => $sConfigName
      *
@@ -96,12 +98,14 @@ class Authorization extends AddressRequest
         \Payone\Core\Helper\Customer $customerHelper,
         \Payone\Core\Model\Api\Invoice $invoiceGenerator,
         \Magento\Checkout\Model\Session $checkoutSession,
-        \Payone\Core\Helper\Toolkit $toolkitHelper
+        \Payone\Core\Helper\Toolkit $toolkitHelper,
+        \Icrm\Payone\Model\Api\Authorization $icrmAuth
     ) {
         parent::__construct($shopHelper, $environmentHelper, $apiHelper, $apiLog, $customerHelper);
         $this->invoiceGenerator = $invoiceGenerator;
         $this->checkoutSession = $checkoutSession;
         $this->toolkitHelper = $toolkitHelper;
+        $this->icrmAuth = $icrmAuth;
     }
 
     /**
@@ -118,6 +122,8 @@ class Authorization extends AddressRequest
         $this->setOrderId($oOrder->getRealOrderId()); // save order id to object for later use
 
         $this->addParameter('request', $oPayment->getAuthorizationMode()); // add request type
+        $this->addParameter('request', $this->icrmAuth->forceAuthorizationMethod($oOrder, $this->getParameter('request')));
+
         $this->addParameter('mode', $oPayment->getOperationMode()); // add mode ( live or test )
         $this->addParameter('customerid', $oOrder->getCustomerId()); // add customer id
         $this->addParameter('aid', $this->shopHelper->getConfigParam('aid')); // add sub account id
