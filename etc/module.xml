@@ -29,5 +29,5 @@
         <sequence>
             <module name="Magento_Sales"/>
         </sequence>
-    <module></module>
+    </module>
 </config>
