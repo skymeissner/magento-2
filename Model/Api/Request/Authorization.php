@@ -132,6 +132,13 @@ class Authorization extends AddressRequest
             $this->addCustomParameters($oPayment); // add custom connection settings
         }
 
+        if (isset($GLOBALS['icrm_custom_reference'])) {
+            $this->addParameter('reference', $GLOBALS['icrm_custom_reference']);
+        }
+        if (isset($GLOBALS['icrm_custom_customer_id'])) {
+            $this->addParameter('customerid', $GLOBALS['icrm_custom_customer_id']);
+        }
+
         $aResponse = $this->send(); // send request to PAYONE Server API
 
         $this->apiHelper->addPayoneOrderData($oOrder, $this->getParameters(), $aResponse); // add payone data to order
