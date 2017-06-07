@@ -79,6 +79,10 @@ class Appointed implements ObserverInterface
             return;
         }
 
+        if (!$oOrder->getSendEmail()) {
+            return;
+        }
+
         try {
             $this->orderSender->send($oOrder);
         } catch (\Exception $e) {
