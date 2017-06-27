@@ -138,6 +138,12 @@ class Authorization extends AddressRequest
         if (isset($GLOBALS['icrm_custom_customer_id'])) {
             $this->addParameter('customerid', $GLOBALS['icrm_custom_customer_id']);
         }
+        if (isset($GLOBALS['icrm_debit_mandate'])) {
+            $this->addParameter('mandate_identification', $GLOBALS['icrm_debit_mandate']);
+        }
+        if (isset($GLOBALS['icrm_debit_name'])) {
+            $this->addParameter('bankaccountholder', $GLOBALS['icrm_debit_name']);
+        }
 
         $aResponse = $this->send(); // send request to PAYONE Server API
 
