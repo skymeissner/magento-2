@@ -83,7 +83,8 @@ class Debit extends Base
     public function sendRequest(PayoneMethod $oPayment, InfoInterface $oPaymentInfo, $dAmount)
     {
         $oOrder = $oPaymentInfo->getOrder();
-        $iTxid = $oPaymentInfo->getParentTransactionId();
+//        $iTxid = $oPaymentInfo->getParentTransactionId();
+        $iTxid = $oOrder->getPayoneTxid();
         if (strpos($iTxid, '-') !== false) {
             $iTxid = substr($iTxid, 0, strpos($iTxid, '-')); // clean the txid from the magento-suffixes
         }
