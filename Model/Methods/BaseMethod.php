@@ -208,7 +208,7 @@ abstract class BaseMethod extends AbstractMethod
      * @param \Magento\Checkout\Model\Session                         $checkoutSession
      * @param \Payone\Core\Model\Api\Request\Debit                    $debitRequest
      * @param \Payone\Core\Model\Api\Request\Capture                  $captureRequest
-     * @param \Payone\Core\Model\Api\Request\Authorization            $authorizationRequest
+     * @param \Payone\Core\Model\Api\Request\AuthorizationFactory     $authorizationRequestFactory
      * @param \Magento\Framework\Model\ResourceModel\AbstractResource $resource
      * @param \Magento\Framework\Data\Collection\AbstractDb           $resourceCollection
      * @param array                                                   $data
@@ -227,7 +227,7 @@ abstract class BaseMethod extends AbstractMethod
         \Magento\Checkout\Model\Session $checkoutSession,
         \Payone\Core\Model\Api\Request\Debit $debitRequest,
         \Payone\Core\Model\Api\Request\Capture $captureRequest,
-        \Payone\Core\Model\Api\Request\Authorization $authorizationRequest,
+        \Payone\Core\Model\Api\Request\AuthorizationFactory $authorizationRequestFactory,
         \Magento\Framework\Model\ResourceModel\AbstractResource $resource = null,
         \Magento\Framework\Data\Collection\AbstractDb $resourceCollection = null,
         array $data = []
@@ -239,7 +239,7 @@ abstract class BaseMethod extends AbstractMethod
         $this->checkoutSession = $checkoutSession;
         $this->debitRequest = $debitRequest;
         $this->captureRequest = $captureRequest;
-        $this->authorizationRequest = $authorizationRequest;
+        $this->authorizationRequest = $authorizationRequestFactory->create();
     }
 
     /**
