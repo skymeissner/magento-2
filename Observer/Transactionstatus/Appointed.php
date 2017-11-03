@@ -79,10 +79,6 @@ class Appointed implements ObserverInterface
             return;
         }
 
-        if ($oOrder->getIcrmPreventAutoEmails()) {
-            return;
-        }
-
         try {
             $this->orderSender->send($oOrder);
         } catch (\Exception $e) {
