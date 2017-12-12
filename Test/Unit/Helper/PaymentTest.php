@@ -34,11 +34,14 @@ use Magento\Framework\App\Helper\Context;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Payone\Core\Model\PayoneConfig;
+use Payone\Core\Helper\Toolkit;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Model\Test\PayoneObjectManager;
 
-class PaymentTest extends \PHPUnit_Framework_TestCase
+class PaymentTest extends BaseTestCase
 {
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -52,9 +55,14 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
      */
     private $scopeConfig;
 
+    /**
+     * @var Toolkit
+     */
+    private $toolkitHelper;
+
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $this->scopeConfig = $this->getMockBuilder(ScopeConfigInterface::class)->disableOriginalConstructor()->getMock();
         $context = $this->objectManager->getObject(Context::class, ['scopeConfig' => $this->scopeConfig]);
@@ -65,9 +73,12 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
         $storeManager = $this->getMockBuilder(StoreManagerInterface::class)->disableOriginalConstructor()->getMock();
         $storeManager->method('getStore')->willReturn($store);
 
+        $this->toolkitHelper = $this->objectManager->getObject(Toolkit::class);
+
         $this->payment = $this->objectManager->getObject(Payment::class, [
             'context' => $context,
-            'storeManager' => $storeManager
+            'storeManager' => $storeManager,
+            'toolkitHelper' => $this->toolkitHelper
         ]);
     }
 
@@ -129,7 +140,7 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
         ];
         $this->scopeConfig->expects($this->any())
             ->method('getValue')
-            ->willReturnMap([['payone_general/statusmapping/'.PayoneConfig::METHOD_CREDITCARD, ScopeInterface::SCOPE_STORE, null, serialize($mapping)]]);
+            ->willReturnMap([['payone_general/statusmapping/'.PayoneConfig::METHOD_CREDITCARD, ScopeInterface::SCOPE_STORE, null, $this->toolkitHelper->serialize($mapping)]]);
         $result = $this->payment->getStatusMappingByCode(PayoneConfig::METHOD_CREDITCARD);
         $expected = ['appointed' => 'processing'];
         $this->assertEquals($expected, $result);
@@ -162,6 +173,19 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->payment->getPaymentAbbreviation('not_existing');
         $expected = 'unknown';
+        $this->assertEquals($expected, $result);
+    }
+
+    public function testGetKlarnaStoreIds()
+    {
+        $storeIds = ['key' => ['store_id' => '123', 'countries' => ['DE', 'AT']]];
+
+        $this->scopeConfig->expects($this->any())
+            ->method('getValue')
+            ->willReturnMap([['payone_payment/'.PayoneConfig::METHOD_KLARNA.'/klarna_config', ScopeInterface::SCOPE_STORE, null, $this->toolkitHelper->serialize($storeIds)]]);
+
+        $expected = ['DE' => '123', 'AT' => '123'];
+        $result = $this->payment->getKlarnaStoreIds();
         $this->assertEquals($expected, $result);
     }
 }

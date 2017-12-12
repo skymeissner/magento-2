@@ -27,7 +27,6 @@
 namespace Payone\Core\Helper;
 
 use Payone\Core\Model\PayoneConfig;
-use Locale;
 
 /**
  * Helper class for everything that has to do with request
@@ -53,16 +52,16 @@ class Request extends \Payone\Core\Helper\Base
      *
      * @param \Magento\Framework\App\Helper\Context      $context
      * @param \Magento\Store\Model\StoreManagerInterface $storeManager
-     * @param \Payone\Core\Helper\Environment            $environmentHelper
      * @param \Payone\Core\Helper\Shop                   $shopHelper
+     * @param \Payone\Core\Helper\Environment            $environmentHelper
      */
     public function __construct(
         \Magento\Framework\App\Helper\Context $context,
         \Magento\Store\Model\StoreManagerInterface $storeManager,
-        \Payone\Core\Helper\Environment $environmentHelper,
-        \Payone\Core\Helper\Shop $shopHelper
+        \Payone\Core\Helper\Shop $shopHelper,
+        \Payone\Core\Helper\Environment $environmentHelper
     ) {
-        parent::__construct($context, $storeManager);
+        parent::__construct($context, $storeManager, $shopHelper);
         $this->environmentHelper = $environmentHelper;
         $this->shopHelper = $shopHelper;
     }
@@ -83,7 +82,7 @@ class Request extends \Payone\Core\Helper\Base
                 'aid' => $this->getConfigParam('aid'), // your AID
                 'portalid' => $this->getConfigParam('portalid'), // your PortalId
                 'encoding' => $this->environmentHelper->getEncoding(), // desired encoding
-                'language' => Locale::getPrimaryLanguage(Locale::getDefault()),
+                'language' => $this->shopHelper->getLocale(),
                 'checktype' => $this->getConfigParam('bankaccountcheck_type', PayoneConfig::METHOD_DEBIT, 'payone_payment'),
                 'hash' => $this->getBankaccountCheckRequestHash(),
                 'integrator_name' => 'Magento2',

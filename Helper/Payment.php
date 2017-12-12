@@ -56,6 +56,11 @@ class Payment extends \Payone\Core\Helper\Base
         PayoneConfig::METHOD_OBT_PRZELEWY,
         PayoneConfig::METHOD_BARZAHLEN,
         PayoneConfig::METHOD_PAYDIREKT,
+        PayoneConfig::METHOD_SAFE_INVOICE,
+        PayoneConfig::METHOD_PAYOLUTION_INVOICE,
+        PayoneConfig::METHOD_PAYOLUTION_DEBIT,
+        PayoneConfig::METHOD_PAYOLUTION_INSTALLMENT,
+        PayoneConfig::METHOD_ALIPAY
     ];
 
     /**
@@ -81,6 +86,11 @@ class Payment extends \Payone\Core\Helper\Base
         PayoneConfig::METHOD_BILLSAFE => 'fnc',
         PayoneConfig::METHOD_KLARNA => 'fnc',
         PayoneConfig::METHOD_BARZAHLEN => 'csh',
+        PayoneConfig::METHOD_SAFE_INVOICE => 'rec',
+        PayoneConfig::METHOD_PAYOLUTION_INVOICE => 'fnc',
+        PayoneConfig::METHOD_PAYOLUTION_DEBIT => 'fnc',
+        PayoneConfig::METHOD_PAYOLUTION_INSTALLMENT => 'fnc',
+        PayoneConfig::METHOD_ALIPAY => 'wlt',
     ];
 
     /**
@@ -156,11 +166,13 @@ class Payment extends \Payone\Core\Helper\Base
     public function getStatusMappingByCode($sPaymentCode)
     {
         $sStatusMapping = $this->getConfigParam($sPaymentCode, 'statusmapping');
-        $aStatusMapping = unserialize($sStatusMapping);
+        $aStatusMapping = $this->unserialize($sStatusMapping);
         $aCleanMapping = [];
-        foreach ($aStatusMapping as $aMap) {
-            if (isset($aMap['txaction']) && isset($aMap['state_status'])) {
-                $aCleanMapping[$aMap['txaction']] = $aMap['state_status'];
+        if ($aStatusMapping) {
+            foreach ($aStatusMapping as $aMap) {
+                if (isset($aMap['txaction']) && isset($aMap['state_status'])) {
+                    $aCleanMapping[$aMap['txaction']] = $aMap['state_status'];
+                }
             }
         }
         return $aCleanMapping;
@@ -203,5 +215,24 @@ class Payment extends \Payone\Core\Helper\Base
             return $this->aPaymentAbbreviation[$sPaymentCode];
         }
         return 'unknown';
+    }
+
+    /**
+     * Collect the Klarna store ids from the config and format it for frontend-use
+     *
+     * @return array
+     */
+    public function getKlarnaStoreIds()
+    {
+        $aStoreIds = [];
+        $aKlarnaConfig = $this->unserialize($this->getConfigParam('klarna_config', PayoneConfig::METHOD_KLARNA, 'payone_payment'));
+        foreach ($aKlarnaConfig as $aItem) {
+            if (!empty($aItem['store_id']) && isset($aItem['countries'])) {
+                foreach ($aItem['countries'] as $sCountry) {
+                    $aStoreIds[$sCountry] = $aItem['store_id'];
+                }
+            }
+        }
+        return $aStoreIds;
     }
 }

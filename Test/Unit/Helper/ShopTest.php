@@ -31,22 +31,35 @@ use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Framework\App\ProductMetadata;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Store\Api\Data\StoreInterface;
+use Magento\Framework\App\Helper\Context;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Store\Model\ScopeInterface;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Model\Test\PayoneObjectManager;
 
-class ShopTest extends \PHPUnit_Framework_TestCase
+class ShopTest extends BaseTestCase
 {
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
-    protected $objectManager;
+    private $objectManager;
 
     /**
      * @var Shop
      */
     protected $shop;
 
+    /**
+     * @var ScopeConfigInterface|\PHPUnit_Framework_MockObject_MockObject
+     */
+    private $scopeConfig;
+
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
+
+        $this->scopeConfig = $this->getMockBuilder(ScopeConfigInterface::class)->disableOriginalConstructor()->getMock();
+        $context = $this->objectManager->getObject(Context::class, ['scopeConfig' => $this->scopeConfig]);
 
         $productMetadata = $this->getMockBuilder(ProductMetadata::class)->disableOriginalConstructor()->getMock();
         $productMetadata->method('getEdition')->willReturn('Community');
@@ -57,7 +70,11 @@ class ShopTest extends \PHPUnit_Framework_TestCase
 
         $storeManager = $this->getMockBuilder(StoreManagerInterface::class)->disableOriginalConstructor()->getMock();
         $storeManager->method('getStore')->willReturn($store);
-        $this->shop = $this->objectManager->getObject(Shop::class, ['storeManager' => $storeManager, 'productMetadata' => $productMetadata]);
+        $this->shop = $this->objectManager->getObject(Shop::class, [
+            'context' => $context,
+            'storeManager' => $storeManager,
+            'productMetadata' => $productMetadata
+        ]);
     }
 
     public function testGetMagentoEdition()
@@ -77,6 +94,16 @@ class ShopTest extends \PHPUnit_Framework_TestCase
     {
         $result = $this->shop->getStoreId();
         $expected = 1;
+        $this->assertEquals($expected, $result);
+    }
+
+    public function testGetLocale()
+    {
+        $expected = 'de';
+        $this->scopeConfig->expects($this->any())
+            ->method('getValue')
+            ->willReturnMap([['general/locale/code', ScopeInterface::SCOPE_STORE, null, $expected]]);
+        $result = $this->shop->getLocale();
         $this->assertEquals($expected, $result);
     }
 }

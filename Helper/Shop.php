@@ -26,6 +26,8 @@
 
 namespace Payone\Core\Helper;
 
+use Locale;
+
 /**
  * Helper class for everything that has to do with the magento shop
  */
@@ -34,7 +36,7 @@ class Shop extends \Payone\Core\Helper\Base
     /**
      * Product metadata object
      *
-     * @var \Magento\Framework\App\ResourceConnection
+     * @var \Magento\Framework\App\ProductMetadata
      */
     protected $productMetadata;
 
@@ -50,7 +52,7 @@ class Shop extends \Payone\Core\Helper\Base
         \Magento\Store\Model\StoreManagerInterface $storeManager,
         \Magento\Framework\App\ProductMetadata $productMetadata
     ) {
-        parent::__construct($context, $storeManager);
+        parent::__construct($context, $storeManager, $this);
         $this->productMetadata = $productMetadata;
     }
 
@@ -82,5 +84,15 @@ class Shop extends \Payone\Core\Helper\Base
     public function getStoreId()
     {
         return $this->storeManager->getStore()->getId();
+    }
+
+    /**
+     * Return locale config of current store
+     *
+     * @return string
+     */
+    public function getLocale()
+    {
+        return Locale::getPrimaryLanguage($this->getConfigParam('code', 'locale', 'general'));
     }
 }

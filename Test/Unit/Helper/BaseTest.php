@@ -33,11 +33,14 @@ use Magento\Store\Api\Data\StoreInterface;
 use Magento\Framework\App\Helper\Context;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\Request\Http;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Model\Test\PayoneObjectManager;
 
-class BaseTest extends \PHPUnit_Framework_TestCase
+class BaseTest extends BaseTestCase
 {
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -53,10 +56,13 @@ class BaseTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
+
+        $request = $this->getMockBuilder(Http::class)->disableOriginalConstructor()->getMock();
+        $request->method('getParam')->willReturn('value');
 
         $this->scopeConfig = $this->getMockBuilder(ScopeConfigInterface::class)->disableOriginalConstructor()->getMock();
-        $context = $this->objectManager->getObject(Context::class, ['scopeConfig' => $this->scopeConfig]);
+        $context = $this->objectManager->getObject(Context::class, ['scopeConfig' => $this->scopeConfig, 'httpRequest' => $request]);
 
         $store = $this->getMockBuilder(StoreInterface::class)->disableOriginalConstructor()->getMock();
         $store->method('getCode')->willReturn(null);
@@ -100,6 +106,13 @@ class BaseTest extends \PHPUnit_Framework_TestCase
             );
         $result = $this->base->getConfigParamAllStores('mid');
         $expected = ['12345', '23456', '34567'];
+        $this->assertEquals($expected, $result);
+    }
+
+    public function testGetRequestParameter()
+    {
+        $expected = 'value';
+        $result = $this->base->getRequestParameter('param');
         $this->assertEquals($expected, $result);
     }
 }

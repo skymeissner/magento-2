@@ -66,19 +66,6 @@ class Authorization extends AddressRequest
     protected $icrmAuth;
 
     /**
-     * Map for custom parameters to be added $sParamName => $sConfigName
-     *
-     * @var array
-     */
-    protected $aCustomParamMap = [
-        'mid' => 'mid',
-        'portalid' => 'portalid',
-        'aid' => 'aid',
-        'key' => 'key',
-        'request' => 'request',
-    ];
-
-    /**
      * Constructor
      *
      * @param \Payone\Core\Helper\Shop                $shopHelper
@@ -128,9 +115,7 @@ class Authorization extends AddressRequest
         $this->addParameter('customerid', $oOrder->getCustomerId()); // add customer id
         $this->addParameter('aid', $this->shopHelper->getConfigParam('aid')); // add sub account id
         $this->setAuthorizationParameters($oPayment, $oOrder, $dAmount); // set authorization params
-        if ($oPayment->hasCustomConfig()) {// if payment type doesnt use the global settings
-            $this->addCustomParameters($oPayment); // add custom connection settings
-        }
+
 
         if (isset($GLOBALS['icrm_custom_reference'])) {
             $this->addParameter('reference', $GLOBALS['icrm_custom_reference']);
@@ -145,7 +130,7 @@ class Authorization extends AddressRequest
             $this->addParameter('bankaccountholder', $GLOBALS['icrm_debit_name']);
         }
 
-        $aResponse = $this->send(); // send request to PAYONE Server API
+        $aResponse = $this->send($oPayment); // send request to PAYONE Server API
 
         $this->apiHelper->addPayoneOrderData($oOrder, $this->getParameters(), $aResponse); // add payone data to order
 
@@ -168,7 +153,7 @@ class Authorization extends AddressRequest
         $oShipping = $oOrder->getShippingAddress(); // get shipping address from order
         if ($oShipping) {// shipping address existing?
             $this->addAddress($oShipping, true); // add regular shipping address
-        } elseif ($oPayment->getCode() == PayoneConfig::METHOD_PAYPAL && $this->shopHelper->getConfigParam('bill_as_del_address', PayoneConfig::METHOD_PAYPAL, 'payone_payment')) {
+        } elseif ($oPayment->getCode() == PayoneConfig::METHOD_PAYDIREKT || ($oPayment->getCode() == PayoneConfig::METHOD_PAYPAL && $this->shopHelper->getConfigParam('bill_as_del_address', PayoneConfig::METHOD_PAYPAL, 'payone_payment'))) {
             $this->addAddress($oOrder->getBillingAddress(), true); // add billing address as shipping address
         }
     }
@@ -197,7 +182,7 @@ class Authorization extends AddressRequest
         $this->setUserParameters($oPayment, $oOrder); // add user data - addresses etc.
         $this->setPaymentParameters($oPayment, $oOrder); // add payment specific parameters
 
-        if ($this->apiHelper->isInvoiceDataNeeded($oPayment)) {//
+        if ($this->apiHelper->isInvoiceDataNeeded($oPayment)) {
             $this->invoiceGenerator->addProductInfo($this, $oOrder); // add invoice parameters
         }
     }
@@ -220,26 +205,6 @@ class Authorization extends AddressRequest
         $this->aParameters = array_merge($this->aParameters, $aPaymentParams); // merge payment params with other params
         if ($oPayment->needsRedirectUrls() === true) {// does the used payment type need redirect urls?
             $this->addRedirectUrls($oPayment); // add needed redirect urls
-        }
-    }
-
-    /**
-     * Add non-global parameters specifically configured in the payment type
-     *
-     * @param  PayoneMethod $oPayment
-     * @return void
-     */
-    protected function addCustomParameters(PayoneMethod $oPayment)
-    {
-        foreach ($this->aCustomParamMap as $sParamName => $sConfigName) {// add all custom parameters
-            $sCustomConfig = $oPayment->getCustomConfigParam($sConfigName); // get custom config param
-            if (!empty($sCustomConfig)) { // only add if the param is configured
-                if ($sConfigName == 'key') {
-                    $this->addParameter($sParamName, md5($sCustomConfig)); // key isn't hashed in db
-                } else {
-                    $this->addParameter($sParamName, $sCustomConfig); // add custom param to request
-                }
-            }
         }
     }
 }

@@ -26,7 +26,6 @@
 
 namespace Payone\Core\Helper;
 
-use Payone\Core\Model\PayoneConfig;
 use Payone\Core\Model\Methods\PayoneMethod;
 use Magento\Sales\Model\Order as SalesOrder;
 
@@ -40,7 +39,7 @@ use Magento\Sales\Model\Order as SalesOrder;
  * @license   <http://www.gnu.org/licenses/> GNU Lesser General Public License
  * @link      http://www.payone.de
  */
-class Api extends \Payone\Core\Helper\Base
+class Api extends Base
 {
     /**
      * PAYONE connection curl php
@@ -64,10 +63,46 @@ class Api extends \Payone\Core\Helper\Base
     protected $connFsockopen;
 
     /**
+     * Fields to copy from the request array to the order
+     *
+     * @var array
+     */
+    protected $requestToOrder = [
+        'reference' => 'payone_refnr',
+        'request' => 'payone_authmode',
+        'mode' => 'payone_mode',
+        'mandate_identification' => 'payone_mandate_id',
+        'workorderid' => 'payone_workorder_id',
+        'add_paydata[installment_duration]' => 'payone_installment_duration',
+    ];
+
+    /**
+     * Fields to copy from the response to the order
+     *
+     * @var array
+     */
+    protected $responseToOrder = [
+        'txid' => 'payone_txid',
+        'mandate_identification' => 'payone_mandate_id',
+        'clearing_reference' => 'payone_clearing_reference',
+        'add_paydata[clearing_reference]' => 'payone_clearing_reference',
+        'add_paydata[workorderid]' => 'payone_workorder_id',
+        'clearing_bankaccount' => 'payone_clearing_bankaccount',
+        'clearing_bankcode' => 'payone_clearing_bankcode',
+        'clearing_bankcountry' => 'payone_clearing_bankcountry',
+        'clearing_bankname' => 'payone_clearing_bankname',
+        'clearing_bankaccountholder' => 'payone_clearing_bankaccountholder',
+        'clearing_bankcity' => 'payone_clearing_bankcity',
+        'clearing_bankiban' => 'payone_clearing_bankiban',
+        'clearing_bankbic' => 'payone_clearing_bankbic'
+    ];
+
+    /**
      * Constructor
      *
      * @param \Magento\Framework\App\Helper\Context      $context
      * @param \Magento\Store\Model\StoreManagerInterface $storeManager
+     * @param \Payone\Core\Helper\Shop                   $shopHelper
      * @param \Payone\Core\Helper\Connection\CurlPhp     $connCurlPhp
      * @param \Payone\Core\Helper\Connection\CurlCli     $connCurlCli
      * @param \Payone\Core\Helper\Connection\Fsockopen   $connFsockopen
@@ -75,11 +110,12 @@ class Api extends \Payone\Core\Helper\Base
     public function __construct(
         \Magento\Framework\App\Helper\Context $context,
         \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Payone\Core\Helper\Shop $shopHelper,
         \Payone\Core\Helper\Connection\CurlPhp $connCurlPhp,
         \Payone\Core\Helper\Connection\CurlCli $connCurlCli,
         \Payone\Core\Helper\Connection\Fsockopen $connFsockopen
     ) {
-        parent::__construct($context, $storeManager);
+        parent::__construct($context, $storeManager, $shopHelper);
         $this->connCurlPhp = $connCurlPhp;
         $this->connCurlCli = $connCurlCli;
         $this->connFsockopen = $connFsockopen;
@@ -162,6 +198,24 @@ class Api extends \Payone\Core\Helper\Base
     }
 
     /**
+     * Copy Data to order by given map
+     *
+     * @param SalesOrder $oOrder
+     * @param array $aData
+     * @param array $aMap
+     * @return SalesOrder
+     */
+    protected function addDataToOrder(SalesOrder $oOrder, $aData, $aMap)
+    {
+        foreach ($aMap as $sFrom => $sTo) {
+            if (isset($aData[$sFrom])) {
+                $oOrder->setData($sTo, $aData[$sFrom]);
+            }
+        }
+        return $oOrder;
+    }
+
+    /**
      * Add PAYONE information to the order object to be saved in the DB
      *
      * @param  SalesOrder $oOrder
@@ -171,17 +225,8 @@ class Api extends \Payone\Core\Helper\Base
      */
     public function addPayoneOrderData(SalesOrder $oOrder, $aRequest, $aResponse)
     {
-        if (isset($aResponse['txid'])) {// txid existing?
-            $oOrder->setPayoneTxid($aResponse['txid']); // add txid to order entity
-        }
-        $oOrder->setPayoneRefnr($aRequest['reference']); // add refnr to order entity
-        $oOrder->setPayoneAuthmode($aRequest['request']); // add authmode to order entity
-        $oOrder->setPayoneMode($aRequest['mode']); // add payone mode to order entity
-        if (isset($aRequest['mandate_identification'])) {// mandate id existing in request?
-            $oOrder->setPayoneMandateId($aRequest['mandate_identification']);
-        } elseif (isset($aResponse['mandate_identification'])) {// mandate id existing in response?
-            $oOrder->setPayoneMandateId($aResponse['mandate_identification']);
-        }
+        $this->addDataToOrder($oOrder, $aRequest, $this->requestToOrder);
+        $this->addDataToOrder($oOrder, $aResponse, $this->responseToOrder);
     }
 
     /**
@@ -192,9 +237,8 @@ class Api extends \Payone\Core\Helper\Base
      */
     public function isInvoiceDataNeeded(PayoneMethod $oPayment)
     {
-        $sType = $this->getConfigParam('request_type'); // auth or preauth?
         $blInvoiceEnabled = (bool)$this->getConfigParam('transmit_enabled', 'invoicing'); // invoicing enabled?
-        if ($oPayment->needsProductInfo() || ($sType == PayoneConfig::REQUEST_TYPE_AUTHORIZATION && $blInvoiceEnabled)) {
+        if ($blInvoiceEnabled || $oPayment->needsProductInfo()) {
             return true; // invoice data needed
         }
         return false; // invoice data not needed

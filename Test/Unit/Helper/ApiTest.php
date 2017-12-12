@@ -38,11 +38,13 @@ use Magento\Sales\Model\Order;
 use Payone\Core\Helper\Connection\CurlPhp;
 use Payone\Core\Helper\Connection\CurlCli;
 use Payone\Core\Helper\Connection\Fsockopen;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Model\Test\PayoneObjectManager;
 
-class ApiTest extends \PHPUnit_Framework_TestCase
+class ApiTest extends BaseTestCase
 {
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -78,7 +80,7 @@ class ApiTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $this->payment = $this->getMockBuilder(PayoneMethod::class)->disableOriginalConstructor()->getMock();
         $this->scopeConfig = $this->getMockBuilder(ScopeConfigInterface::class)->disableOriginalConstructor()->getMock();
@@ -160,8 +162,14 @@ class ApiTest extends \PHPUnit_Framework_TestCase
             'request' => $request,
             'mode' => $mode,
             'mandate_identification' => $mandate,
+            'add_paydata[installment_duration]' => '5'
         ];
-        $aResponse = ['txid' => $txid];
+        $aResponse = [
+            'txid' => $txid,
+            'clearing_reference' => 'REFERENCE',
+            'add_paydata[clearing_reference]' => 'REFERENCE',
+            'add_paydata[workorderid]' => 'WORKORDER'
+        ];
 
         $this->api->addPayoneOrderData($oOrder, $aRequest, $aResponse);
         $this->assertEquals($reference, $oOrder->getPayoneRefnr());
@@ -180,6 +188,7 @@ class ApiTest extends \PHPUnit_Framework_TestCase
             'reference' => 'ref123',
             'request' => 'authorization',
             'mode' => 'live',
+            'workorderid' => 'WORKORDER',
         ];
         $aResponse = ['mandate_identification' => $mandate];
 

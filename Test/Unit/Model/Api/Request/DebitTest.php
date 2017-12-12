@@ -26,6 +26,7 @@
 
 namespace Payone\Core\Test\Unit\Model\Api\Request;
 
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Sales\Model\Order;
 use Payone\Core\Helper\Database;
 use Payone\Core\Model\Api\Request\Debit as ClassToTest;
@@ -37,8 +38,11 @@ use Magento\Sales\Model\Order\Creditmemo;
 use Magento\Sales\Model\Order\Invoice;
 use Payone\Core\Helper\Toolkit;
 use Payone\Core\Helper\Shop;
+use Magento\Sales\Model\Order\Item;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Model\Test\PayoneObjectManager;
 
-class DebitTest extends \PHPUnit_Framework_TestCase
+class DebitTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -50,9 +54,14 @@ class DebitTest extends \PHPUnit_Framework_TestCase
      */
     private $apiHelper;
 
+    /**
+     * @var Shop|\PHPUnit_Framework_MockObject_MockObject
+     */
+    private $shopHelper;
+
     protected function setUp()
     {
-        $objectManager = new ObjectManager($this);
+        $objectManager = $this->getObjectManager();
 
         $databaseHelper = $this->getMockBuilder(Database::class)->disableOriginalConstructor()->getMock();
         $databaseHelper->method('getSequenceNumber')->willReturn('0');
@@ -62,18 +71,18 @@ class DebitTest extends \PHPUnit_Framework_TestCase
         $toolkitHelper = $this->getMockBuilder(Toolkit::class)->disableOriginalConstructor()->getMock();
         $toolkitHelper->method('handleSubstituteReplacement')->willReturn('test text');
 
-        $shopHelper = $this->getMockBuilder(Shop::class)->disableOriginalConstructor()->getMock();
-        $shopHelper->method('getConfigParam')->willReturn('test');
+        $this->shopHelper = $this->getMockBuilder(Shop::class)->disableOriginalConstructor()->getMock();
+        $this->shopHelper->method('getConfigParam')->willReturn('test');
 
         $this->classToTest = $objectManager->getObject(ClassToTest::class, [
             'databaseHelper' => $databaseHelper,
             'apiHelper' => $this->apiHelper,
             'toolkitHelper' => $toolkitHelper,
-            'shopHelper' => $shopHelper
+            'shopHelper' => $this->shopHelper
         ]);
     }
 
-    public function testSendRequest()
+    protected function getPaymentMock()
     {
         $invoice = $this->getMockBuilder(Invoice::class)->disableOriginalConstructor()->getMock();
         $invoice->method('getIncrementId')->willReturn('12345');
@@ -85,20 +94,37 @@ class DebitTest extends \PHPUnit_Framework_TestCase
 
         $payment = $this->getMockBuilder(PayoneMethod::class)
             ->disableOriginalConstructor()
-            ->setMethods(['getOperationMode', 'getCreditmemo'])
+            ->setMethods(['getOperationMode', 'getCreditmemo', 'hasCustomConfig', 'getCustomConfigParam'])
             ->getMock();
         $payment->method('getOperationMode')->willReturn('test');
         $payment->method('getCreditmemo')->willReturn($creditmemo);
+        $payment->method('hasCustomConfig')->willReturn(true);
+        $payment->method('getCustomConfigParam')->willReturn('test');
 
+        return $payment;
+    }
+
+    protected function getOrderMock()
+    {
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->setMethods(['getRealOrderId', 'getOrderCurrencyCode', 'getIncrementId', 'getId', 'getCustomerId'])
+            ->setMethods(['getRealOrderId', 'getOrderCurrencyCode', 'getIncrementId', 'getId', 'getCustomerId', 'getPayoneRefundIban', 'getPayoneRefundBic', 'getAllItems'])
             ->getMock();
         $order->method('getRealOrderId')->willReturn('54321');
         $order->method('getOrderCurrencyCode')->willReturn('EUR');
         $order->method('getIncrementId')->willReturn('12345');
         $order->method('getId')->willReturn('12345');
         $order->method('getCustomerId')->willReturn('12345');
+        return $order;
+    }
+
+    public function testSendRequest()
+    {
+        $payment = $this->getPaymentMock();
+
+        $order = $this->getOrderMock();
+        $order->method('getPayoneRefundIban')->willReturn('DE85123456782599100003');
+        $order->method('getPayoneRefundBic')->willReturn('TESTTEST');
 
         $paymentInfo = $this->getMockBuilder(Info::class)
             ->disableOriginalConstructor()
@@ -109,8 +135,91 @@ class DebitTest extends \PHPUnit_Framework_TestCase
 
         $response = ['status' => 'VALID'];
         $this->apiHelper->method('sendApiRequest')->willReturn($response);
+        $this->apiHelper->method('isInvoiceDataNeeded')->willReturn(true);
 
         $result = $this->classToTest->sendRequest($payment, $paymentInfo, 100);
         $this->assertEquals($response, $result);
+    }
+
+    public function testSendRequestPositions()
+    {
+        $requestparam = ['items' => ['id' => ['qty' => 1]], 'shipping_amount' => 5, 'payone_iban' => 'DE85123456782599100003', 'payone_bic' => 'TESTTEST'];
+        $this->shopHelper->method('getRequestParameter')->willReturn($requestparam);
+
+        $payment = $this->getPaymentMock();
+
+        $item = $this->getMockBuilder(Item::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getItemId', 'getProductId', 'getQtyOrdered'])
+            ->getMock();
+        $item->method('getItemId')->willReturn('id');
+        $item->method('getProductId')->willReturn('sku');
+        $item->method('getQtyOrdered')->willReturn(2);
+
+        $item_missing = $this->getMockBuilder(Item::class)->disableOriginalConstructor()->getMock();
+        $item_missing->method('getItemId')->willReturn('missing');
+
+        $order = $this->getOrderMock();
+        $order->method('getAllItems')->willReturn([$item, $item_missing]);
+
+        $paymentInfo = $this->getMockBuilder(Info::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getOrder', 'getParentTransactionId'])
+            ->getMock();
+        $paymentInfo->method('getOrder')->willReturn($order);
+        $paymentInfo->method('getParentTransactionId')->willReturn('12-345');
+
+        $response = ['status' => 'VALID'];
+        $this->apiHelper->method('sendApiRequest')->willReturn($response);
+        $this->apiHelper->method('isInvoiceDataNeeded')->willReturn(true);
+
+        $result = $this->classToTest->sendRequest($payment, $paymentInfo, 100);
+        $this->assertEquals($response, $result);
+    }
+
+    public function testSendRequestIbanException()
+    {
+        $payment = $this->getPaymentMock();
+
+        $order = $this->getOrderMock();
+        $order->method('getPayoneRefundIban')->willReturn('12345');
+        $order->method('getPayoneRefundBic')->willReturn('TESTTEST');
+
+        $paymentInfo = $this->getMockBuilder(Info::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getOrder', 'getParentTransactionId'])
+            ->getMock();
+        $paymentInfo->method('getOrder')->willReturn($order);
+        $paymentInfo->method('getParentTransactionId')->willReturn('12-345');
+
+        $response = ['status' => 'VALID'];
+        $this->apiHelper->method('sendApiRequest')->willReturn($response);
+        $this->apiHelper->method('isInvoiceDataNeeded')->willReturn(true);
+
+        $this->expectException(LocalizedException::class);
+        $this->classToTest->sendRequest($payment, $paymentInfo, 100);
+    }
+
+    public function testSendRequestBicException()
+    {
+        $payment = $this->getPaymentMock();
+
+        $order = $this->getOrderMock();
+        $order->method('getPayoneRefundIban')->willReturn('DE85123456782599100003');
+        $order->method('getPayoneRefundBic')->willReturn('12345');
+
+        $paymentInfo = $this->getMockBuilder(Info::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getOrder', 'getParentTransactionId'])
+            ->getMock();
+        $paymentInfo->method('getOrder')->willReturn($order);
+        $paymentInfo->method('getParentTransactionId')->willReturn('12-345');
+
+        $response = ['status' => 'VALID'];
+        $this->apiHelper->method('sendApiRequest')->willReturn($response);
+        $this->apiHelper->method('isInvoiceDataNeeded')->willReturn(true);
+
+        $this->expectException(LocalizedException::class);
+        $this->classToTest->sendRequest($payment, $paymentInfo, 100);
     }
 }

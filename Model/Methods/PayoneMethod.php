@@ -110,6 +110,9 @@ abstract class PayoneMethod extends BaseMethod
         $oOrder = $payment->getOrder();
         $oOrder->setCanSendNewEmailFlag(false); // dont send email now, will be sent on appointed
         $this->checkoutSession->unsPayoneRedirectUrl(); // remove redirect url from session
+        $this->checkoutSession->unsPayoneRedirectedPaymentMethod();
+        $this->checkoutSession->unsPayoneCanceledPaymentMethod();
+        $this->checkoutSession->unsPayoneIsError();
         $aResponse = $this->authorizationRequest->sendRequest($this, $oOrder, $amount);
         $this->handleResponse($aResponse);
         if ($aResponse['status'] == 'ERROR') {// request returned an error
@@ -119,6 +122,7 @@ abstract class PayoneMethod extends BaseMethod
             $payment->setIsTransactionClosed(0);
             if ($aResponse['status'] == 'REDIRECT') {// user needs to be redirected to external payment page
                 $this->checkoutSession->setPayoneRedirectUrl($aResponse['redirecturl']);
+                $this->checkoutSession->setPayoneRedirectedPaymentMethod($this->getCode());
             }
         }
     }
@@ -203,6 +207,17 @@ abstract class PayoneMethod extends BaseMethod
     public function needsProductInfo()
     {
         return $this->blNeedsProductInfo;
+    }
+
+
+    /**
+     * Return if bank data has to be added to the debit request
+     *
+     * @return bool
+     */
+    public function needsSepaDataOnDebit()
+    {
+        return $this->blNeedsSepaDataOnDebit;
     }
 
     /**

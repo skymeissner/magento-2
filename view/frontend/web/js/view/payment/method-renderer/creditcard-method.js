@@ -56,7 +56,12 @@ define(
                 }
                 parentReturn.additional_data.firstname = this.firstname();
                 parentReturn.additional_data.lastname = this.lastname();
-                parentReturn.additional_data.pseudocardpan = document.getElementById(this.getCode() + '_pseudocardpan').value;
+                parentReturn.additional_data.pseudocardpan = $('#' + this.getCode() + '_pseudocardpan').val();
+                if (typeof window.checkoutConfig.payment.payone.ccCheckResponse !== "undefined") {
+                    parentReturn.additional_data.truncatedcardpan = window.checkoutConfig.payment.payone.ccCheckResponse.truncatedcardpan;
+                    parentReturn.additional_data.cardtype = window.checkoutConfig.payment.payone.ccCheckResponse.cardtype;
+                    parentReturn.additional_data.cardexpiredate = window.checkoutConfig.payment.payone.ccCheckResponse.cardexpiredate;
+                }
                 return parentReturn;
             },
             
@@ -135,6 +140,9 @@ define(
                 // PayOne Request if the data is valid
                 if (window.iframes.isComplete()) {
                     window.ccjs = this;
+                    window.processPayoneResponseCCHosted = window.processPayoneResponseCCHosted || function (response) {
+                            window.ccjs.processPayoneResponseCCHosted(response);
+                        };
                     window.iframes.creditCardCheck('processPayoneResponseCCHosted'); // Perform "CreditCardCheck" to create and get a
                     // PseudoCardPan; then call your function "payCallback"
                     fullScreenLoader.startLoader();
@@ -149,6 +157,7 @@ define(
                     if (document.getElementById(this.getCode() + '_pseudocardpan')) {
                         document.getElementById(this.getCode() + '_pseudocardpan').value = response.pseudocardpan;
                     }
+                    window.checkoutConfig.payment.payone.ccCheckResponse = response;
 
                     this.handleRedirectAction('payone/onepage/redirect/');
                 } else if (response.status === "INVALID") {
@@ -161,8 +170,3 @@ define(
     
     }
 );
-
-function processPayoneResponseCCHosted(response)
-{
-    window.ccjs.processPayoneResponseCCHosted(response);
-}
