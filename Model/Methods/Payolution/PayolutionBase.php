@@ -126,7 +126,7 @@ class PayolutionBase extends PayoneMethod
         \Magento\Checkout\Model\Session $checkoutSession,
         \Payone\Core\Model\Api\Request\Debit $debitRequest,
         \Payone\Core\Model\Api\Request\Capture $captureRequest,
-        \Payone\Core\Model\Api\Request\Authorization $authorizationRequest,
+        \Payone\Core\Model\Api\Request\AuthorizationFactory $authorizationRequest,
         \Payone\Core\Model\Api\Request\Genericpayment\PreCheck $precheckRequest,
         \Magento\Framework\Model\ResourceModel\AbstractResource $resource = null,
         \Magento\Framework\Data\Collection\AbstractDb $resourceCollection = null,
