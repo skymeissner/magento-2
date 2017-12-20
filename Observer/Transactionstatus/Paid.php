@@ -140,12 +140,10 @@ class Paid implements ObserverInterface
         ;
 
         $invoices = $this->invoiceRepository->getList($searchCriteria)->getItems();
-        if (count($invoices) === 1) {
+        if (count($invoices)) {
             return array_pop($invoices);
         }
-        
-//         0 or more than one invoices found
-        return null;
 
+        return null;
     }
 }
