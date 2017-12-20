@@ -120,9 +120,9 @@ class Paid implements ObserverInterface
         $oInvoice->save();
         $oInvoice->getOrder()->save();  // not use $order->save() as this comes from event and is not updated during $oInvoice->pay() => all changes would be lost
 
-        if ($this->baseHelper->getConfigParam('send_invoice_email', 'emails')) {
-            $this->invoiceSender->send($oInvoice);
-        }
+//        if ($this->baseHelper->getConfigParam('send_invoice_email', 'emails')) {
+//            $this->invoiceSender->send($oInvoice);
+//        }
     }
 
     /**
