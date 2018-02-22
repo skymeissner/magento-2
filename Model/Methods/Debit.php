@@ -52,6 +52,13 @@ class Debit extends PayoneMethod
     protected $_formBlockType = 'Payone\Core\Block\Form\Debit';
 
     /**
+     * Info instructions block path
+     *
+     * @var string
+     */
+    protected $_formBlockType = 'Payone\Core\Block\Form\Debit';
+
+    /**
      * Clearingtype for PAYONE authorization request
      *
      * @var string

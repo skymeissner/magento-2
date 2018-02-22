@@ -19,22 +19,59 @@
  * @category  Payone
  * @package   Payone_Magento2_Plugin
  * @author    FATCHIP GmbH <support@fatchip.de>
- * @copyright 2003 - 2016 Payone GmbH
+ * @copyright 2003 - 2017 Payone GmbH
  * @license   <http://www.gnu.org/licenses/> GNU Lesser General Public License
  * @link      http://www.payone.de
  */
 
 namespace Payone\Core\Block\Form;
 
+use \Magento\Framework\View\Element\Template\Context;
+use \Payone\Core\Helper\Country;
+use Payone\Core\Model\PayoneConfig;
+
 /**
  * Base class for payment method instructions
  */
-class Debit extends \Magento\Payment\Block\Form
+class Debit extends Base
 {
     /**
-     * Template for payment-instructions
+     * PAYONE country helper
      *
-     * @var string
+     * @var Country
      */
-    protected $_template = 'form/debit.phtml';
+    protected $countryHelper;
+
+    /**
+     * Constructor
+     *
+     * @param Context $context
+     * @param Country $countryHelper
+     * @param array   $data
+     */
+    public function __construct(Context $context, Country $countryHelper, array $data = [])
+    {
+        parent::__construct($context, $data);
+        $this->countryHelper = $countryHelper;
+    }
+
+    /**
+     * Get all activated debit SEPA countries
+     *
+     * @return array
+     */
+    public function getSepaCountries()
+    {
+        return $this->countryHelper->getDebitSepaCountries();
+    }
+
+    /**
+     * Return is BIC field has to be shown
+     *
+     * @return bool
+     */
+    public function isBicNeeded()
+    {
+        return (bool)$this->countryHelper->getConfigParam('request_bic', PayoneConfig::METHOD_DEBIT, 'payone_payment');
+    }
 }
