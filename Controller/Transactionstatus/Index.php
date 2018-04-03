@@ -185,6 +185,12 @@ class Index extends \Magento\Framework\App\Action\Action
         if (!$this->environmentHelper->isRemoteIpValid()) {
             return 'Access denied';
         }
+
+//        Already processed appointed callback
+        if ($this->getParam('txaction') === 'appointed' && $this->transactionStatus->getAppointedIdByTxid($this->getParam('txid')) != false) {
+            return 'TSOK';
+        }
+
         if ($this->toolkitHelper->isKeyValid($this->getParam('key'))) {
             $oOrder = $this->orderHelper->getOrderByTxid($this->getParam('txid'));
             $this->log($oOrder);
