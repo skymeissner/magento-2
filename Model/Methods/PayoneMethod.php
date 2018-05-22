@@ -309,9 +309,4 @@ abstract class PayoneMethod extends BaseMethod
     {
         return $this->iNarrativeTextMax;
     }
-
-    public function canCapture()
-    {
-        return parent::canCapture() && ($this->getInfoInstance()->getOrder()->getPayoneAuthmode() != 'authorization');
-    }
 }
