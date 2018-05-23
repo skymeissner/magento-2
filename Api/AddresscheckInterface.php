@@ -26,6 +26,7 @@
 
 namespace Payone\Core\Api;
 
+
 interface AddresscheckInterface
 {
     /**
