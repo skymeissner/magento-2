@@ -136,6 +136,8 @@ class Debit extends Base
     {
         $oOrder = $oPaymentInfo->getOrder();
 
+        $this->setStoreCode($oOrder->getStore()->getCode());
+
         $aPositions = $this->getInvoiceList($oOrder);
 
         $iTxid = $oPaymentInfo->getParentTransactionId();
@@ -151,8 +153,9 @@ class Debit extends Base
         $this->addParameter('sequencenumber', $this->databaseHelper->getSequenceNumber($iTxid));
 
         // Total order sum in smallest currency unit
-        $this->addParameter('amount', number_format((-1 * $dAmount), 2, '.', '') * 100);
-        $this->addParameter('currency', $oOrder->getOrderCurrencyCode()); // Currency
+        $this->addParameter('amount', number_format((-1 * $dAmount), 2, '.', '') * 100); // add price to request
+        $this->addParameter('currency', $this->apiHelper->getCurrencyFromOrder($oOrder)); // add currency to request
+
         $this->addParameter('transactiontype', 'GT');
 
         $sRefundAppendix = $this->getRefundAppendix($oOrder, $oPayment);
@@ -194,7 +197,7 @@ class Debit extends Base
      */
     protected function getRefundAppendix(Order $oOrder, PayoneMethod $oPayment)
     {
-        $sText = $this->shopHelper->getConfigParam('invoice_appendix_refund', 'invoicing');
+        $sText = $this->shopHelper->getConfigParam('invoice_appendix_refund', 'invoicing', 'payone_general', $this->storeCode);
         $sCreditMemoIncrId = '';
         $sInvoiceIncrementId = '';
         $sInvoiceId = '';
