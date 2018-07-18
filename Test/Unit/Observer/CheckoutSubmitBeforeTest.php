@@ -39,8 +39,11 @@ use Magento\Payment\Model\InfoInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Event\Observer;
 use Magento\Store\Model\ScopeInterface;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
+use Payone\Core\Model\Risk\Addresscheck;
 
-class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
+class CheckoutSubmitBeforeTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -48,7 +51,7 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
     private $classToTest;
 
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -64,14 +67,18 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $this->consumerscore = $this->getMockBuilder(Consumerscore::class)->disableOriginalConstructor()->getMock();
         $this->consumerscoreHelper = $this->getMockBuilder(ConsumerscoreHelper::class)->disableOriginalConstructor()->getMock();
 
+        $addresscheck = $this->getMockBuilder(Addresscheck::class)->disableOriginalConstructor()->getMock();
+        $addresscheck->method('getPersonstatusMapping')->willReturn(['PPV' => 'R']);
+
         $this->classToTest = $this->objectManager->getObject(ClassToTest::class, [
             'consumerscore' => $this->consumerscore,
-            'consumerscoreHelper' => $this->consumerscoreHelper
+            'consumerscoreHelper' => $this->consumerscoreHelper,
+            'addresscheck' => $addresscheck
         ]);
     }
 
@@ -79,7 +86,10 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
     {
         $this->consumerscoreHelper->method('isCreditratingNeeded')->willReturn(false);
 
-        $quote = $this->getMockBuilder(Quote::class)->disableOriginalConstructor()->getMock();
+        $quote = $this->getMockBuilder(Quote::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getGrandTotal'])
+            ->getMock();
         $quote->method('getGrandTotal')->willReturn(123.45);
 
         $result = $this->classToTest->isCreditratingNeeded($quote);
@@ -225,6 +235,24 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expected, $result);
     }
 
+    public function testGetScoreByCreditratingScorePersonstatus()
+    {
+        $expected = 'R';
+
+        $this->consumerscore->method('sendRequest')->willReturn(['status' => 'VALID', 'score' => 'G', 'personstatus' => 'PPV']);
+        $this->consumerscoreHelper->method('getWorstScore')->willReturn($expected);
+
+        $address = $this->getMockBuilder(Address::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getPayoneProtectScore', 'setPayoneProtectScore', 'save'])
+            ->getMock();
+        $address->method('getPayoneProtectScore')->willReturn('G');
+        $address->method('setPayoneProtectScore')->willReturn($address);
+
+        $result = $this->classToTest->getScoreByCreditrating($address);
+        $this->assertEquals($expected, $result);
+    }
+
     public function testGetScoreByCreditratingException()
     {
         $this->consumerscoreHelper->method('getConfigParam')->willReturn(null);
@@ -232,7 +260,7 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
 
         $address = $this->getMockBuilder(Address::class)->disableOriginalConstructor()->getMock();
 
-        $this->setExpectedException(LocalizedException::class);
+        $this->expectException(LocalizedException::class);
         $this->classToTest->getScoreByCreditrating($address);
     }
 
@@ -243,7 +271,7 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
     {
         $address = $this->getMockBuilder(Address::class)
             ->disableOriginalConstructor()
-            ->setMethods(['getPayoneProtectScore', 'setPayoneProtectScore', 'save'])
+            ->setMethods(['getPayoneAddresscheckScore', 'getPayoneProtectScore', 'setPayoneProtectScore', 'save'])
             ->getMock();
         $address->method('getPayoneAddresscheckScore')->willReturn('G');
         $address->method('setPayoneProtectScore')->willReturn($address);
@@ -289,6 +317,15 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
         $this->assertNull($result);
     }
 
+    public function testExecuteNoQuote()
+    {
+        $observer = $this->getMockBuilder(Observer::class)->disableOriginalConstructor()->setMethods(['getQuote'])->getMock();
+        $observer->method('getQuote')->willReturn(null);
+
+        $result = $this->classToTest->execute($observer);
+        $this->assertNull($result);
+    }
+
     public function testExecuteException()
     {
         $this->consumerscore->method('sendRequest')->willReturn(['status' => 'VALID', 'score' => 'G']);
@@ -311,7 +348,7 @@ class CheckoutSubmitBeforeTest extends \PHPUnit_Framework_TestCase
 
         $observer = $this->getExecuteObserver();
 
-        $this->setExpectedException(LocalizedException::class);
+        $this->expectException(LocalizedException::class);
         $this->classToTest->execute($observer);
     }
 }

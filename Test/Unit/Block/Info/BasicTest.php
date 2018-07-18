@@ -32,8 +32,10 @@ use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Payment\Model\Info;
 use Payone\Core\Model\Entities\TransactionStatus;
 use Payone\Core\Model\TransactionStatusRepository;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
 
-class BasicTest extends \PHPUnit_Framework_TestCase
+class BasicTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -41,7 +43,7 @@ class BasicTest extends \PHPUnit_Framework_TestCase
     private $classToTest;
 
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -52,10 +54,27 @@ class BasicTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
-        $order = $this->getMockBuilder(Order::class)->disableOriginalConstructor()->getMock();
+        $order = $this->getMockBuilder(Order::class)
+            ->disableOriginalConstructor()
+            ->setMethods([
+                'getPayoneTxid',
+                'getPayoneClearingBankcode',
+                'getPayoneClearingBankaccountholder',
+                'getPayoneClearingBankaccount',
+                'getPayoneClearingBankiban',
+                'getPayoneClearingBankbic',
+                'getPayoneClearingBankname'
+            ])
+            ->getMock();
         $order->method('getPayoneTxid')->willReturn('12345');
+        $order->method('getPayoneClearingBankcode')->willReturn('12345');
+        $order->method('getPayoneClearingBankaccountholder')->willReturn('12345');
+        $order->method('getPayoneClearingBankaccount')->willReturn('12345');
+        $order->method('getPayoneClearingBankiban')->willReturn('12345');
+        $order->method('getPayoneClearingBankbic')->willReturn('12345');
+        $order->method('getPayoneClearingBankname')->willReturn('12345');
 
         $this->info = $this->getMockBuilder(Info::class)
             ->disableOriginalConstructor()
@@ -65,21 +84,9 @@ class BasicTest extends \PHPUnit_Framework_TestCase
 
         $transactionStatus = $this->getMockBuilder(TransactionStatus::class)
             ->disableOriginalConstructor()
-            ->setMethods([
-                'getClearingBankcode',
-                'getClearingBankaccountholder',
-                'getClearingBankaccount',
-                'getClearingBankiban',
-                'getClearingBankbic',
-                'getClearingBankname'
-            ])
+            ->setMethods(['getClearingBankcode'])
             ->getMock();
         $transactionStatus->method('getClearingBankcode')->willReturn('12345');
-        $transactionStatus->method('getClearingBankaccountholder')->willReturn('12345');
-        $transactionStatus->method('getClearingBankaccount')->willReturn('12345');
-        $transactionStatus->method('getClearingBankiban')->willReturn('12345');
-        $transactionStatus->method('getClearingBankbic')->willReturn('12345');
-        $transactionStatus->method('getClearingBankname')->willReturn('12345');
 
         $transactionStatusRepository = $this->getMockBuilder(TransactionStatusRepository::class)->disableOriginalConstructor()->getMock();
         $transactionStatusRepository->method('getAppointedByTxid')->willReturn($transactionStatus);

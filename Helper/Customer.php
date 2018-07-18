@@ -54,16 +54,18 @@ class Customer extends \Payone\Core\Helper\Base
      *
      * @param \Magento\Framework\App\Helper\Context      $context
      * @param \Magento\Store\Model\StoreManagerInterface $storeManager
+     * @param \Payone\Core\Helper\Shop                   $shopHelper
      * @param \Magento\Checkout\Model\Session            $checkoutSession
      * @param \Magento\Directory\Model\RegionFactory     $regionFactory
      */
     public function __construct(
         \Magento\Framework\App\Helper\Context $context,
         \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Payone\Core\Helper\Shop $shopHelper,
         \Magento\Checkout\Model\Session $checkoutSession,
         \Magento\Directory\Model\RegionFactory $regionFactory
     ) {
-        parent::__construct($context, $storeManager);
+        parent::__construct($context, $storeManager, $shopHelper);
         $this->checkoutSession = $checkoutSession;
         $this->regionFactory = $regionFactory;
     }
@@ -85,13 +87,13 @@ class Customer extends \Payone\Core\Helper\Base
     /**
      * Determine if the customer entered his birthday
      *
-     * @return bool
+     * @return string|bool
      */
-    public function customerHasGivenBirthday()
+    public function getCustomerBirthday()
     {
         $oCustomer = $this->checkoutSession->getQuote()->getCustomer();
         if ($oCustomer && $oCustomer->getDob()) {
-            return true;
+            return $oCustomer->getDob();
         }
         return false;
     }

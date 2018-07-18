@@ -128,11 +128,12 @@ class Addresscheck
      * Get addresscheck config parameter
      *
      * @param  string $sParam
+     * @param  string $sGroup
      * @return string
      */
-    public function getConfigParam($sParam)
+    public function getConfigParam($sParam, $sGroup = 'address_check')
     {
-        return $this->databaseHelper->getConfigParam($sParam, 'address_check', 'payone_protect');
+        return $this->databaseHelper->getConfigParam($sParam, $sGroup, 'payone_protect');
     }
 
     /**
@@ -225,8 +226,8 @@ class Addresscheck
     {
         $aReturnMappings = [];
 
-        $sMappings = $this->getConfigParam('mapping_personstatus');
-        $aMappings = unserialize($sMappings);
+        $sMappings = $this->getConfigParam('mapping', 'personstatus');
+        $aMappings = $this->toolkitHelper->unserialize($sMappings);
         if (!is_array($aMappings)) {
             $aMappings = [];
         }
@@ -280,7 +281,9 @@ class Addresscheck
     public function getErrorMessageByResponse($aResponse)
     {
         $sErrorMessage = false;
-        if ($aResponse['status'] == 'INVALID') {
+        if (!isset($aResponse['status'])) { // the response doesnt have the expected format
+            $sErrorMessage = 'An error occured during the addresscheck.';
+        } elseif ($aResponse['status'] == 'INVALID') {
             $sErrorMessage = $this->getInvalidMessage($aResponse['customermessage']);
         } elseif ($aResponse['status'] == 'ERROR') {
             if ($this->getConfigParam('handle_response_error') == 'stop_checkout') {

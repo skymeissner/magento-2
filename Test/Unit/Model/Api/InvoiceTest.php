@@ -32,8 +32,10 @@ use Payone\Core\Helper\Toolkit;
 use Payone\Core\Model\Api\Request\Authorization;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Item;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
 
-class InvoiceTest extends \PHPUnit_Framework_TestCase
+class InvoiceTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -47,17 +49,17 @@ class InvoiceTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $objectManager = new ObjectManager($this);
+        $objectManager = $this->getObjectManager();
 
         $this->toolkitHelper = $this->getMockBuilder(Toolkit::class)->disableOriginalConstructor()->getMock();
         $this->toolkitHelper->method('getInvoiceAppendix')->willReturn('invoice appendix');
-        $this->toolkitHelper->method('getConfigParam')->willReturn('sku');
         $this->toolkitHelper->expects($this->any())
             ->method('formatNumber')
             ->willReturnMap([
                 [100, 2, '100.00'],
                 [5, 2, '5.00'],
                 [-5, 2, '-5.00'],
+                [-7, 2, '-7.00'],
                 [90, 2, '90.00'],
                 [105, 2, '105.00'],
             ]);
@@ -79,14 +81,18 @@ class InvoiceTest extends \PHPUnit_Framework_TestCase
         $item->method('getProductId')->willReturn('12345');
         $item->method('getQtyOrdered')->willReturn('1');
         $item->method('getSku')->willReturn('test_123');
-        $item->method('getPriceInclTax')->willReturn('100');
+        $item->method('getPriceInclTax')->willReturn('120');
+        $item->method('getBasePriceInclTax')->willReturn('100');
         $item->method('getName')->willReturn('Test product');
         $item->method('getTaxPercent')->willReturn('19');
+        $item->method('getOrigData')->willReturn('1');
         return $item;
     }
 
     public function testAddProductInfo()
     {
+        $this->toolkitHelper->method('getConfigParam')->willReturn('sku');
+
         $authorization = $this->getMockBuilder(Authorization::class)->disableOriginalConstructor()->getMock();
 
         $items = [$this->getItemMock()];
@@ -98,6 +104,30 @@ class InvoiceTest extends \PHPUnit_Framework_TestCase
         $order->method('getBaseShippingInclTax')->willReturn(-5);
         $order->method('getBaseDiscountAmount')->willReturn(-5);
         $order->method('getCouponCode')->willReturn('test');
+        $order->method('getBaseGrandTotal')->willReturn($expected);
+
+        $result = $this->classToTest->addProductInfo($authorization, $order, false);
+        $this->assertEquals($expected, $result);
+    }
+
+    public function testAddProductInfoDisplay()
+    {
+        $this->toolkitHelper->method('getConfigParam')->willReturn('display');
+
+        $authorization = $this->getMockBuilder(Authorization::class)->disableOriginalConstructor()->getMock();
+
+        $items = [$this->getItemMock()];
+
+        $expected = 106;
+
+        $order = $this->getMockBuilder(Order::class)->disableOriginalConstructor()->getMock();
+        $order->method('getAllItems')->willReturn($items);
+        $order->method('getBaseShippingInclTax')->willReturn(-5);
+        $order->method('getShippingInclTax')->willReturn(-7);
+        $order->method('getBaseDiscountAmount')->willReturn(-5);
+        $order->method('getDiscountAmount')->willReturn(-7);
+        $order->method('getCouponCode')->willReturn('test');
+        $order->method('getBaseGrandTotal')->willReturn($expected);
         $order->method('getGrandTotal')->willReturn($expected);
 
         $result = $this->classToTest->addProductInfo($authorization, $order, false);
@@ -106,6 +136,31 @@ class InvoiceTest extends \PHPUnit_Framework_TestCase
 
     public function testAddProductInfoSurcharge()
     {
+        $this->toolkitHelper->method('getConfigParam')->willReturn('sku');
+
+        $authorization = $this->getMockBuilder(Authorization::class)->disableOriginalConstructor()->getMock();
+
+        $items = [$this->getItemMock()];
+
+        $expected = 110;
+
+        $order = $this->getMockBuilder(Order::class)->disableOriginalConstructor()->getMock();
+        $order->method('getAllItems')->willReturn($items);
+        $order->method('getBaseShippingInclTax')->willReturn(5);
+        $order->method('getBaseDiscountAmount')->willReturn(-5);
+        $order->method('getCouponCode')->willReturn('test');
+        $order->method('getGrandTotal')->willReturn($expected);
+
+        $positions = ['12345test_123' => '1', 'delcost' => '10'];
+
+        $result = $this->classToTest->addProductInfo($authorization, $order, $positions, true);
+        $this->assertEquals($expected, $result);
+    }
+
+    public function testAddProductInfoException()
+    {
+        $this->toolkitHelper->method('getConfigParam')->willReturn('sku');
+
         $authorization = $this->getMockBuilder(Authorization::class)->disableOriginalConstructor()->getMock();
 
         $items = [$this->getItemMock()];
@@ -119,9 +174,9 @@ class InvoiceTest extends \PHPUnit_Framework_TestCase
         $order->method('getCouponCode')->willReturn('test');
         $order->method('getGrandTotal')->willReturn($expected);
 
-        $positions = ['12345' => ['amount' => '1']];
+        $positions = ['12345test_123' => 1.7];
 
+        $this->expectException(\InvalidArgumentException::class);
         $result = $this->classToTest->addProductInfo($authorization, $order, $positions);
-        $this->assertEquals($expected, $result);
     }
 }

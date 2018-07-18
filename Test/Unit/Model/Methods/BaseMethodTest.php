@@ -39,8 +39,14 @@ use Payone\Core\Model\Api\Request\Authorization;
 use Payone\Core\Model\Api\Request\Debit;
 use Magento\Framework\Exception\LocalizedException;
 use Payone\Core\Model\Api\Request\Capture;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
+use Magento\Sales\Model\ResourceModel\Order\Creditmemo\Collection;
+use Magento\Sales\Model\Order\Creditmemo;
+use Magento\Sales\Model\Order\Invoice;
+use Magento\Sales\Model\ResourceModel\Order\Invoice\Collection as InvoiceCollection;
 
-class BaseMethodTest extends \PHPUnit_Framework_TestCase
+class BaseMethodTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -48,7 +54,7 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
     private $classToTest;
 
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -81,7 +87,7 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $this->shopHelper = $this->getMockBuilder(Shop::class)->disableOriginalConstructor()->getMock();
         $this->scopeConfig = $this->getMockBuilder(ScopeConfigInterface::class)->disableOriginalConstructor()->getMock();
@@ -127,7 +133,10 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
 
     public function testAuthorize()
     {
+        $this->shopHelper->method('getConfigParam')->willReturn('display');
+
         $order = $this->getMockBuilder(Order::class)->disableOriginalConstructor()->getMock();
+        $order->method('getTotalDue')->willReturn(100);
 
         $paymentInfo = $this->getMockBuilder(Info::class)->disableOriginalConstructor()->setMethods(['getOrder'])->getMock();
         $paymentInfo->method('getOrder')->willReturn($order);
@@ -149,13 +158,22 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
         $aResponse = ['status' => 'ERROR', 'errorcode' => '42', 'customermessage' => 'Test error'];
         $this->authorizationRequest->method('sendRequest')->willReturn($aResponse);
 
-        $this->setExpectedException(LocalizedException::class);
+        $this->expectException(LocalizedException::class);
         $this->classToTest->authorize($paymentInfo, 100);
     }
 
     public function testRefund()
     {
-        $paymentInfo = $this->getMockBuilder(Info::class)->disableOriginalConstructor()->getMock();
+        $this->shopHelper->method('getConfigParam')->willReturn('display');
+
+        $creditmemo = $this->getMockBuilder(Creditmemo::class)->disableOriginalConstructor()->getMock();
+        $creditmemo->method('getGrandTotal')->willReturn(100);
+
+        $paymentInfo = $this->getMockBuilder(Info::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getCreditmemo'])
+            ->getMock();
+        $paymentInfo->method('getCreditmemo')->willReturn($creditmemo);
 
         $aResponse = ['status' => 'APPROVED'];
         $this->debitRequest->method('sendRequest')->willReturn($aResponse);
@@ -171,7 +189,7 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
         $aResponse = ['status' => 'ERROR', 'errorcode' => '42', 'customermessage' => 'Test error'];
         $this->debitRequest->method('sendRequest')->willReturn($aResponse);
 
-        $this->setExpectedException(LocalizedException::class);
+        $this->expectException(LocalizedException::class);
         $this->classToTest->refund($paymentInfo, 100);
     }
 
@@ -181,13 +199,23 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
 
         $this->debitRequest->method('sendRequest')->willReturn(false);
 
-        $this->setExpectedException(LocalizedException::class);
+        $this->expectException(LocalizedException::class);
         $this->classToTest->refund($paymentInfo, 100);
     }
 
     public function testCapture()
     {
+        $this->shopHelper->method('getConfigParam')->willReturn('display');
+
+        $invoice = $this->getMockBuilder(Invoice::class)->disableOriginalConstructor()->getMock();
+        $invoice->method('getGrandTotal')->willReturn(100);
+
+        $invoiceCollection = $this->getMockBuilder(InvoiceCollection::class)->disableOriginalConstructor()->getMock();
+        $invoiceCollection->method('getLastItem')->willReturn($invoice);
+
         $order = $this->getMockBuilder(Order::class)->disableOriginalConstructor()->getMock();
+        $order->method('hasInvoices')->willReturn(true);
+        $order->method('getInvoiceCollection')->willReturn($invoiceCollection);
 
         $paymentInfo = $this->getMockBuilder(Info::class)
             ->disableOriginalConstructor()
@@ -217,7 +245,7 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
         $aResponse = ['status' => 'ERROR', 'errorcode' => '42', 'customermessage' => 'Test error'];
         $this->captureRequest->method('sendRequest')->willReturn($aResponse);
 
-        $this->setExpectedException(LocalizedException::class);
+        $this->expectException(LocalizedException::class);
         $this->classToTest->capture($paymentInfo, 100);
     }
 
@@ -234,7 +262,7 @@ class BaseMethodTest extends \PHPUnit_Framework_TestCase
 
         $this->captureRequest->method('sendRequest')->willReturn(false);
 
-        $this->setExpectedException(LocalizedException::class);
+        $this->expectException(LocalizedException::class);
         $this->classToTest->capture($paymentInfo, 100);
     }
 

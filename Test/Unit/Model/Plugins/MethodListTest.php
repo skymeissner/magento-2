@@ -36,8 +36,12 @@ use Magento\Checkout\Model\Session;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address;
 use Magento\Payment\Model\MethodInterface;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
+use Payone\Core\Model\ResourceModel\PaymentBan;
+use Payone\Core\Model\Risk\Addresscheck;
 
-class MethodListTest extends \PHPUnit_Framework_TestCase
+class MethodListTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -45,7 +49,7 @@ class MethodListTest extends \PHPUnit_Framework_TestCase
     private $classToTest;
 
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -59,9 +63,19 @@ class MethodListTest extends \PHPUnit_Framework_TestCase
      */
     private $consumerscoreHelper;
 
+    /**
+     * @var PaymentBan|\PHPUnit_Framework_MockObject_MockObject
+     */
+    private $paymentBan;
+
+    /**
+     * @var Quote|\PHPUnit_Framework_MockObject_MockObject
+     */
+    private $quote;
+
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $this->consumerscore = $this->getMockBuilder(Consumerscore::class)->disableOriginalConstructor()->getMock();
         $this->consumerscoreHelper = $this->getMockBuilder(ConsumerscoreHelper::class)->disableOriginalConstructor()->getMock();
@@ -84,17 +98,31 @@ class MethodListTest extends \PHPUnit_Framework_TestCase
         $address->method('setPayoneProtectScore')->willReturn($address);
         $address->method('save')->willReturn($address);
 
-        $quote = $this->getMockBuilder(Quote::class)->disableOriginalConstructor()->getMock();
-        $quote->method('getShippingAddress')->willReturn($address);
-        $quote->method('getGrandTotal')->willReturn(100.00);
+        $this->quote = $this->getMockBuilder(Quote::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getShippingAddress', 'getGrandTotal', 'getCustomerId'])
+            ->getMock();
+        $this->quote->method('getShippingAddress')->willReturn($address);
+        $this->quote->method('getGrandTotal')->willReturn(100.00);
 
-        $checkoutSession = $this->getMockBuilder(Session::class)->disableOriginalConstructor()->getMock();
-        $checkoutSession->method('getQuote')->willReturn($quote);
+        $checkoutSession = $this->getMockBuilder(Session::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getQuote', 'getPayonePaymentBans'])
+            ->getMock();
+        $checkoutSession->method('getQuote')->willReturn($this->quote);
+        $checkoutSession->method('getPayonePaymentBans')->willReturn([PayoneConfig::METHOD_DEBIT => '2100-01-01 12:00:00']);
+
+        $addresscheck = $this->getMockBuilder(Addresscheck::class)->disableOriginalConstructor()->getMock();
+        $addresscheck->method('getPersonstatusMapping')->willReturn(['PPV' => 'R']);
+
+        $this->paymentBan = $this->getMockBuilder(PaymentBan::class)->disableOriginalConstructor()->getMock();
 
         $this->classToTest = $this->objectManager->getObject(ClassToTest::class, [
             'consumerscore' => $this->consumerscore,
             'consumerscoreHelper' => $this->consumerscoreHelper,
-            'checkoutSession' => $checkoutSession
+            'checkoutSession' => $checkoutSession,
+            'paymentBan' => $this->paymentBan,
+            'addresscheck' => $addresscheck,
         ]);
     }
 
@@ -108,6 +136,9 @@ class MethodListTest extends \PHPUnit_Framework_TestCase
         $payment = $this->getMockBuilder(MethodInterface::class)->disableOriginalConstructor()->getMock();
         $payment->method('getCode')->willReturn(PayoneConfig::METHOD_DEBIT);
         $paymentMethods = [$payment];
+
+        $this->quote->method('getCustomerId')->willReturn('5');
+        $this->paymentBan->method('getPaymentBans')->willReturn([]);
 
         $result = $this->classToTest->afterGetAvailableMethods($subject, $paymentMethods);
         $this->assertInstanceOf(MethodInterface::class, $result[0]);
@@ -124,13 +155,16 @@ class MethodListTest extends \PHPUnit_Framework_TestCase
         $payment->method('getCode')->willReturn(PayoneConfig::METHOD_CASH_ON_DELIVERY);
         $paymentMethods = [$payment];
 
+        $this->quote->method('getCustomerId')->willReturn('5');
+        $this->paymentBan->method('getPaymentBans')->willReturn([]);
+
         $result = $this->classToTest->afterGetAvailableMethods($subject, $paymentMethods);
         $this->assertInstanceOf(MethodInterface::class, $result[0]);
     }
 
     public function testAfterGetAvailableMethodsEmpty()
     {
-        $this->consumerscore->method('sendRequest')->willReturn(['score' => 'Y']);
+        $this->consumerscore->method('sendRequest')->willReturn(['score' => 'Y', 'personstatus' => 'PPV']);
         $this->consumerscoreHelper->method('getWorstScore')->willReturn('R');
 
         $subject = $this->getMockBuilder(MethodList::class)->disableOriginalConstructor()->getMock();
@@ -138,6 +172,45 @@ class MethodListTest extends \PHPUnit_Framework_TestCase
         $payment = $this->getMockBuilder(MethodInterface::class)->disableOriginalConstructor()->getMock();
         $payment->method('getCode')->willReturn(PayoneConfig::METHOD_BARZAHLEN);
         $paymentMethods = [$payment];
+
+        $this->quote->method('getCustomerId')->willReturn('5');
+        $this->paymentBan->method('getPaymentBans')->willReturn([]);
+
+        $result = $this->classToTest->afterGetAvailableMethods($subject, $paymentMethods);
+        $this->assertEmpty($result);
+    }
+
+    public function testAfterGetAvailableMethodsBanRegistered()
+    {
+        $this->consumerscore->method('sendRequest')->willReturn(true);
+        $this->consumerscoreHelper->method('getWorstScore')->willReturn('Y');
+
+        $subject = $this->getMockBuilder(MethodList::class)->disableOriginalConstructor()->getMock();
+
+        $payment = $this->getMockBuilder(MethodInterface::class)->disableOriginalConstructor()->getMock();
+        $payment->method('getCode')->willReturn(PayoneConfig::METHOD_DEBIT);
+        $paymentMethods = [$payment];
+
+        $this->quote->method('getCustomerId')->willReturn('5');
+        $ban = [PayoneConfig::METHOD_DEBIT => '2100-01-01 12:00:00'];
+        $this->paymentBan->method('getPaymentBans')->willReturn($ban);
+
+        $result = $this->classToTest->afterGetAvailableMethods($subject, $paymentMethods);
+        $this->assertEmpty($result);
+    }
+
+    public function testAfterGetAvailableMethodsBanGuest()
+    {
+        $this->consumerscore->method('sendRequest')->willReturn(true);
+        $this->consumerscoreHelper->method('getWorstScore')->willReturn('Y');
+
+        $subject = $this->getMockBuilder(MethodList::class)->disableOriginalConstructor()->getMock();
+
+        $payment = $this->getMockBuilder(MethodInterface::class)->disableOriginalConstructor()->getMock();
+        $payment->method('getCode')->willReturn(PayoneConfig::METHOD_DEBIT);
+        $paymentMethods = [$payment];
+
+        $this->quote->method('getCustomerId')->willReturn(null);
 
         $result = $this->classToTest->afterGetAvailableMethods($subject, $paymentMethods);
         $this->assertEmpty($result);

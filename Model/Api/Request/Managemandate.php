@@ -26,7 +26,6 @@
 
 namespace Payone\Core\Model\Api\Request;
 
-use Locale;
 use Payone\Core\Model\Methods\PayoneMethod;
 use Magento\Quote\Model\Quote;
 
@@ -95,7 +94,7 @@ class Managemandate extends AddressRequest
             $oCustomer->getDob()
         );
 
-        $this->addParameter('language', Locale::getPrimaryLanguage(Locale::getDefault()));
+        $this->addParameter('language', $this->shopHelper->getLocale());
 
         $oInfoInstance = $oPayment->getInfoInstance();
         $this->addParameter('bankcountry', $oInfoInstance->getAdditionalInformation('bank_country'));
@@ -103,9 +102,9 @@ class Managemandate extends AddressRequest
         if ($oInfoInstance->getAdditionalInformation('bic')) {
             $this->addParameter('bic', $oInfoInstance->getAdditionalInformation('bic'));
         }
-        $this->addParameter('currency', $oQuote->getQuoteCurrencyCode());
+        $this->addParameter('currency', $this->apiHelper->getCurrencyFromQuote($oQuote));
 
-        $aResponse = $this->send();
+        $aResponse = $this->send($oPayment);
         if (is_array($aResponse)) {
             $aResponse['mode'] = $oPayment->getOperationMode();
         }

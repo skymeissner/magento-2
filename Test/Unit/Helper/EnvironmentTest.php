@@ -33,12 +33,14 @@ use Magento\Store\Api\Data\StoreInterface;
 use Magento\Framework\App\Helper\Context;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
+use Payone\Core\Model\Environment\RemoteAddress;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
 
-class EnvironmentTest extends \PHPUnit_Framework_TestCase
+class EnvironmentTest extends BaseTestCase
 {
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -54,7 +56,7 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $remoteAddress = $this->getMockBuilder(RemoteAddress::class)->disableOriginalConstructor()->getMock();
         $remoteAddress->method('getRemoteAddress')->willReturn('192.168.1.100');
@@ -70,7 +72,8 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
 
         $this->environment = $this->objectManager->getObject(Environment::class, [
             'context' => $context,
-            'storeManager' => $storeManager
+            'storeManager' => $storeManager,
+            'remoteAddress' => $remoteAddress
         ]);
     }
 
@@ -97,7 +100,8 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
             ->method('getValue')
             ->willReturnMap(
                 [
-                    ['payone_misc/processing/valid_ips', ScopeInterface::SCOPE_STORE, null, $sWhitelist]
+                    ['payone_misc/processing/valid_ips', ScopeInterface::SCOPE_STORE, null, $sWhitelist],
+                    ['payone_misc/processing/proxy_mode', ScopeInterface::SCOPE_STORE, null, 1]
                 ]
             );
 

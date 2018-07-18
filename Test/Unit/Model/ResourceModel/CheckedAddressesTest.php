@@ -33,8 +33,11 @@ use Magento\Quote\Api\Data\AddressInterface;
 use Magento\Framework\Model\ResourceModel\Db\Context;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
+use Magento\Framework\DB\Select;
 
-class CheckedAddressesTest extends \PHPUnit_Framework_TestCase
+class CheckedAddressesTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -42,7 +45,7 @@ class CheckedAddressesTest extends \PHPUnit_Framework_TestCase
     private $classToTest;
 
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -63,7 +66,7 @@ class CheckedAddressesTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $this->address = $this->getMockBuilder(AddressInterface::class)->disableOriginalConstructor()->getMock();
         $this->address->method('getFirstname')->willReturn('Paul');
@@ -77,7 +80,13 @@ class CheckedAddressesTest extends \PHPUnit_Framework_TestCase
 
         $this->shopHelper = $this->getMockBuilder(Shop::class)->disableOriginalConstructor()->getMock();
 
-        $this->connection = $this->getMockBuilder(AdapterInterface::class)->disableOriginalConstructor()->getMock();
+        $this->connection = $this->getMockBuilder(Select::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['fetchOne', 'select', 'from', 'where', 'insert'])
+            ->getMock();
+        $this->connection->method('select')->willReturn($this->connection);
+        $this->connection->method('from')->willReturn($this->connection);
+        $this->connection->method('where')->willReturn($this->connection);
 
         $resource = $this->getMockBuilder(ResourceConnection::class)->disableOriginalConstructor()->getMock();
         $resource->method('getConnection')->willReturn($this->connection);

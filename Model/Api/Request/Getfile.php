@@ -27,6 +27,7 @@
 namespace Payone\Core\Model\Api\Request;
 
 use Magento\Sales\Model\Order;
+use Payone\Core\Model\Methods\PayoneMethod;
 
 /**
  * Class for the PAYONE Server API request "getfile"
@@ -36,10 +37,11 @@ class Getfile extends Base
     /**
      * Send request "getfile" to PAYONE server API
      *
-     * @param  Order $oOrder
+     * @param  Order        $oOrder
+     * @param  PayoneMethod $oPayment
      * @return string
      */
-    public function sendRequest(Order $oOrder)
+    public function sendRequest(Order $oOrder, PayoneMethod $oPayment)
     {
         $sReturn = false;
         $sStatus = 'ERROR';
@@ -58,6 +60,10 @@ class Getfile extends Base
             $this->removeParameter('solution_version');
         }
 
+        if ($oPayment->hasCustomConfig()) {// if payment type doesnt use the global settings
+            $this->addCustomParameters($oPayment); // add custom connection settings
+        }
+
         $aOptions = [
             'http' => [
                 'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
@@ -73,7 +79,7 @@ class Getfile extends Base
             $aResponse['file'] = $oOrder->getPayoneMandateId().'.pdf';
         }
 
-        $this->apiLog->addApiLogEntry($this, $aResponse, $sStatus); // log request to db
+        $this->apiLog->addApiLogEntry($this->getParameters(), $aResponse, $sStatus, $this->getOrderId()); // log request to db
         return $sReturn;
     }
 }

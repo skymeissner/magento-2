@@ -32,8 +32,10 @@ use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Payment\Model\Info;
 use Payone\Core\Model\Entities\TransactionStatus;
 use Payone\Core\Model\TransactionStatusRepository;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
 
-class CreditcardTest extends \PHPUnit_Framework_TestCase
+class CreditcardTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -41,7 +43,7 @@ class CreditcardTest extends \PHPUnit_Framework_TestCase
     private $classToTest;
 
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
@@ -57,14 +59,17 @@ class CreditcardTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
-        $order = $this->getMockBuilder(Order::class)->disableOriginalConstructor()->getMock();
+        $order = $this->getMockBuilder(Order::class)
+            ->disableOriginalConstructor()
+            ->setMethods(['getPayoneTxid'])
+            ->getMock();
         $order->method('getPayoneTxid')->willReturn('12345');
 
         $this->info = $this->getMockBuilder(Info::class)
             ->disableOriginalConstructor()
-            ->setMethods(['getLastTransId', 'getOrder'])
+            ->setMethods(['getLastTransId', 'getOrder', 'getAdditionalInformation'])
             ->getMock();
         $this->info->method('getOrder')->willReturn($order);
 
@@ -117,6 +122,7 @@ class CreditcardTest extends \PHPUnit_Framework_TestCase
     public function testPrepareSpecificInformationNoLastTransId()
     {
         $this->info->method('getLastTransId')->willReturn('');
+        $this->info->method('getAdditionalInformation')->willReturn('123');
 
         $result = $this->classToTest->getSpecificInformation();
         $this->assertArrayHasKey('Payment has not been processed yet.', $result);

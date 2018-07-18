@@ -27,9 +27,13 @@ define(
         'jquery',
         'Magento_Checkout/js/model/payment/additional-validators',
         'Magento_Checkout/js/action/set-payment-information',
-        'mage/url'
+        'mage/url',
+        'mage/translate',
+        'Magento_Checkout/js/checkout-data',
+        'Magento_Checkout/js/action/select-payment-method',
+        'Magento_Checkout/js/action/place-order'
     ],
-    function (Component, $, additionalValidators, setPaymentInformationAction, url) {
+    function (Component, $, additionalValidators, setPaymentInformationAction, url, $t, checkoutData, selectPaymentMethodAction, placeOrderAction) {
         'use strict';
         return Component.extend({
             redirectToPayoneController: function(sUrl) {
@@ -44,15 +48,25 @@ define(
                 this.isPlaceOrderActionAllowed(false);
 
                 this.getPlaceOrderDeferredObject()
-                    .fail(
-                        function () {
-                            self.isPlaceOrderActionAllowed(true);
-                        }
-                    ).done(
+                .fail(
+                    function () {
+                        self.isPlaceOrderActionAllowed(true);
+                    }
+                ).done(
                     function () {
                         self.afterPlaceOrder();
                         self.redirectToPayoneController(sUrl);
                     }
+                );
+            },
+
+            getPlaceOrderDeferredObject: function () {
+                if (window.checkoutConfig.payment.payone.orderDeferredExists === true) {
+                    return this._super();
+                }
+                // fallback for pre 2.1.0 Magentos
+                return $.when(
+                    placeOrderAction(this.getData(), this.redirectAfterPlaceOrder, this.messageContainer)
                 );
             },
 
@@ -108,6 +122,34 @@ define(
                         return false;
                     }
                 }
+            },
+
+            isBirthdayValid: function (iYear, iMonth, iDay) {
+                if (!$.isNumeric(iYear) || !$.isNumeric(iMonth) || !$.isNumeric(iDay)) {
+                    return false;
+                }
+
+                var sBirthDate = iYear + "-" + iMonth + "-" + iDay;
+                var oBirthDate = new Date(sBirthDate);
+                var oMinDate = new Date(new Date().setYear(new Date().getFullYear() - 18));
+                if (oBirthDate > oMinDate) {
+                    return false;
+                }
+
+                return true;
+            },
+            initialize: function () {
+                this._super();
+                if(this.getCode() === window.checkoutConfig.payment.payone.canceledPaymentMethod) {
+                    selectPaymentMethodAction({method: this.getCode()});
+                    checkoutData.setSelectedPaymentMethod(this.item.method);
+                    if (window.checkoutConfig.payment.payone.isError === true) {
+                        this.messageContainer.addErrorMessage({'message': $t('There has been an error processing your payment')});
+                    } else {
+                        this.messageContainer.addSuccessMessage({'message': $t('Payment has been canceled.')});
+                    }
+                }
+                return this;
             }
         });
     }

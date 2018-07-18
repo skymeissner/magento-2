@@ -30,6 +30,7 @@ use Magento\Framework\Setup\ModuleContextInterface;
 use Magento\Framework\Setup\SchemaSetupInterface;
 use Magento\Framework\Setup\UpgradeSchemaInterface;
 use Magento\Framework\DB\Ddl\Table;
+use Payone\Core\Setup\Tables\PaymentBan;
 
 /**
  * Magento script for updating the database after the initial installation
@@ -48,7 +49,7 @@ class UpgradeSchema extends BaseSchema implements UpgradeSchemaInterface
         if (version_compare($context->getVersion(), '1.3.0', '<')) {// pre update version is lower than 1.3.0
             $this->addTable($setup, \Payone\Core\Setup\Tables\CheckedAddresses::getData());
 
-            $setup->getConnection()->addColumn(
+            $setup->getConnection('checkout')->addColumn(
                 $setup->getTable('quote_address'),
                 'payone_addresscheck_score',
                 [
@@ -59,7 +60,7 @@ class UpgradeSchema extends BaseSchema implements UpgradeSchemaInterface
                     'comment' => 'AddressCheck Person Status Score (G, Y, R)'
                 ]
             );
-            $setup->getConnection()->addColumn(
+            $setup->getConnection('checkout')->addColumn(
                 $setup->getTable('quote_address'),
                 'payone_protect_score',
                 [
@@ -69,6 +70,23 @@ class UpgradeSchema extends BaseSchema implements UpgradeSchemaInterface
                     'default' => '',
                     'comment' => 'Consumerscore Status Score (G, Y, R)'
                 ]
+            );
+        }
+        if (!$setup->getConnection()->isTableExists($setup->getTable(PaymentBan::TABLE_PAYMENT_BAN))) {
+            $this->addTable($setup, PaymentBan::getData());
+        }
+        if (version_compare($context->getVersion(), '2.3.0', '<=')) {// pre update version is lower than 1.3.0
+            $setup->getConnection()->modifyColumn(
+                $setup->getTable('payone_protocol_api'),
+                'mid', ['type' => Table::TYPE_INTEGER, 'default' => '0']
+            );
+            $setup->getConnection()->modifyColumn(
+                $setup->getTable('payone_protocol_api'),
+                'aid', ['type' => Table::TYPE_INTEGER, 'default' => '0']
+            );
+            $setup->getConnection()->modifyColumn(
+                $setup->getTable('payone_protocol_api'),
+                'portalid', ['type' => Table::TYPE_INTEGER, 'default' => '0']
             );
         }
     }

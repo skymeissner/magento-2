@@ -26,15 +26,21 @@
 
 namespace Payone\Core\Test\Unit\Observer\Transactionstatus;
 
+use Payone\Core\Model\PayoneConfig;
 use Payone\Core\Observer\Transactionstatus\Paid as ClassToTest;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Framework\Event\Observer;
 use Magento\Sales\Model\Order;
-use Magento\Sales\Api\Data\OrderPaymentInterface;
+use Magento\Sales\Model\Order\Payment;
 use Magento\Sales\Model\Service\InvoiceService;
 use Magento\Sales\Model\Order\Invoice;
+use Magento\Sales\Model\ResourceModel\Order\Invoice\Collection;
+use Payone\Core\Helper\Base;
+use Payone\Core\Model\Methods\Creditcard;
+use Payone\Core\Test\Unit\BaseTestCase;
+use Payone\Core\Test\Unit\PayoneObjectManager;
 
-class PaidTest extends \PHPUnit_Framework_TestCase
+class PaidTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -42,31 +48,44 @@ class PaidTest extends \PHPUnit_Framework_TestCase
     private $classToTest;
 
     /**
-     * @var ObjectManager
+     * @var ObjectManager|PayoneObjectManager
      */
     private $objectManager;
 
     protected function setUp()
     {
-        $this->objectManager = new ObjectManager($this);
+        $this->objectManager = $this->getObjectManager();
 
         $invoice = $this->getMockBuilder(Invoice::class)->disableOriginalConstructor()->getMock();
 
         $invoiceService = $this->getMockBuilder(InvoiceService::class)->disableOriginalConstructor()->getMock();
         $invoiceService->method('prepareInvoice')->willReturn($invoice);
 
+        $baseHelper = $this->getMockBuilder(Base::class)->disableOriginalConstructor()->getMock();
+        $baseHelper->method('getConfigParam')->willReturn('1');
+
         $this->classToTest = $this->objectManager->getObject(ClassToTest::class, [
-            'invoiceService' => $invoiceService
+            'invoiceService' => $invoiceService,
+            'baseHelper' => $baseHelper
         ]);
     }
 
     public function testExecute()
     {
-        $payment = $this->getMockBuilder(OrderPaymentInterface::class)->disableOriginalConstructor()->getMock();
-        $payment->method('getLastTransId')->willReturn('123');
+        $method = $this->getMockBuilder(Creditcard::class)->disableOriginalConstructor()->getMock();
+        $method->method('getCode')->willReturn(PayoneConfig::METHOD_CREDITCARD);
+
+        $payment = $this->getMockBuilder(Payment::class)->disableOriginalConstructor()->getMock();
+        $payment->method('getMethodInstance')->willReturn($method);
+
+        $invoice = $this->getMockBuilder(Invoice::class)->disableOriginalConstructor()->getMock();
+
+        $invoiceCollection = $this->getMockBuilder(Collection::class)->disableOriginalConstructor()->getMock();
+        $invoiceCollection->method('getItems')->willReturn([$invoice]);
 
         $order = $this->getMockBuilder(Order::class)->disableOriginalConstructor()->getMock();
         $order->method('getPayment')->willReturn($payment);
+        $order->method('getInvoiceCollection')->willReturn($invoiceCollection);
 
         $observer = $this->getMockBuilder(Observer::class)->disableOriginalConstructor()->setMethods(['getOrder'])->getMock();
         $observer->method('getOrder')->willReturn($order);

@@ -56,11 +56,31 @@ abstract class Base
     protected $aParameters = [];
 
     /**
+     * Response of the request
+     *
+     * @var array
+     */
+    protected $aResponse = false;
+
+    /**
      * URL of PAYONE Server API
      *
      * @var string
      */
     protected $sApiUrl = 'https://api.pay1.de/post-gateway/';
+
+    /**
+     * Map for custom parameters to be added $sParamName => $sConfigName
+     *
+     * @var array
+     */
+    protected $aCustomParamMap = [
+        'mid' => 'mid',
+        'portalid' => 'portalid',
+        'aid' => 'aid',
+        'key' => 'key',
+        'request' => 'request',
+    ];
 
     /**
      * PAYONE shop helper
@@ -91,6 +111,13 @@ abstract class Base
     protected $apiLog;
 
     /**
+     * Store id for the current context
+     *
+     * @var string
+     */
+    protected $storeCode = null;
+
+    /**
      * Constructor
      *
      * @param \Payone\Core\Helper\Shop                $shopHelper
@@ -119,14 +146,28 @@ abstract class Base
      */
     protected function initRequest()
     {
-        $this->addParameter('mid', $this->shopHelper->getConfigParam('mid')); // PayOne Merchant ID
-        $this->addParameter('portalid', $this->shopHelper->getConfigParam('portalid')); // PayOne Portal ID
-        $this->addParameter('key', md5($this->shopHelper->getConfigParam('key'))); // PayOne Portal Key
+        $this->addParameter('mid', $this->shopHelper->getConfigParam('mid', 'global', 'payone_general', $this->storeCode)); // PayOne Merchant ID
+        $this->addParameter('portalid', $this->shopHelper->getConfigParam('portalid', 'global', 'payone_general', $this->storeCode)); // PayOne Portal ID
+        $this->addParameter('key', md5($this->shopHelper->getConfigParam('key', 'global', 'payone_general', $this->storeCode))); // PayOne Portal Key
         $this->addParameter('encoding', $this->environmentHelper->getEncoding()); // Encoding
         $this->addParameter('integrator_name', 'Magento2'); // Shop-system
         $this->addParameter('integrator_version', $this->shopHelper->getMagentoVersion()); // Shop version
         $this->addParameter('solution_name', 'fatchip'); // Company developing the module
         $this->addParameter('solution_version', PayoneConfig::MODULE_VERSION); // Module version
+    }
+
+    /**
+     * Set current store code and reinit base parameters
+     *
+     * @param  string $sStoreCode
+     * @return void
+     */
+    public function setStoreCode($sStoreCode)
+    {
+        if ($this->storeCode != $sStoreCode) {
+            $this->storeCode = $sStoreCode;
+            $this->initRequest(); //reinit base parameters
+        }
     }
 
     /**
@@ -183,6 +224,47 @@ abstract class Base
     }
 
     /**
+     * Set response array
+     *
+     * @param  $aResponse
+     * @return void
+     */
+    public function setResponse($aResponse)
+    {
+        $this->aResponse = $aResponse;
+    }
+
+    /**
+     * Return the response array
+     *
+     * @return array
+     */
+    public function getResponse()
+    {
+        return $this->aResponse;
+    }
+
+    /**
+     * Add non-global parameters specifically configured in the payment type
+     *
+     * @param  PayoneMethod $oPayment
+     * @return void
+     */
+    protected function addCustomParameters(PayoneMethod $oPayment)
+    {
+        foreach ($this->aCustomParamMap as $sParamName => $sConfigName) {// add all custom parameters
+            $sCustomConfig = $oPayment->getCustomConfigParam($sConfigName); // get custom config param
+            if (!empty($sCustomConfig)) { // only add if the param is configured
+                if ($sConfigName == 'key') {
+                    $this->addParameter($sParamName, md5($sCustomConfig)); // key isn't hashed in db
+                } else {
+                    $this->addParameter($sParamName, $sCustomConfig); // add custom param to request
+                }
+            }
+        }
+    }
+
+    /**
      * Set the order id that is associated with this request
      *
      * @param  string $sOrderId
@@ -236,19 +318,25 @@ abstract class Base
     /**
      * Send the previously prepared request, log request and response into the database and return the response
 
+     * @param  PayoneMethod $oPayment
      * @return array
      */
-    protected function send()
+    protected function send(PayoneMethod $oPayment = null)
     {
+        if ($oPayment !== null && $oPayment->hasCustomConfig()) { // if payment type doesnt use the global settings
+            $this->addCustomParameters($oPayment); // add custom connection settings
+        }
+
         if (!$this->validateParameters()) {// all base parameters existing?
             return ["errormessage" => "Payone API Setup Data not complete (API-URL, MID, AID, PortalID, Key, Mode)"];
         }
         
         $sRequestUrl = $this->apiHelper->getRequestUrl($this->getParameters(), $this->sApiUrl);
-
         $aResponse = $this->apiHelper->sendApiRequest($sRequestUrl); // send request to PAYONE
-        $this->apiLog->addApiLogEntry($this, $aResponse, $aResponse['status']); // log request to db
-        
+        $this->setResponse($aResponse);
+
+        $this->apiLog->addApiLogEntry($this->getParameters(), $aResponse, $aResponse['status'], $this->getOrderId()); // log request to db
+
         return $aResponse;
     }
 }
