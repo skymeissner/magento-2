@@ -323,6 +323,9 @@ abstract class Base
      */
     protected function send(PayoneMethod $oPayment = null)
     {
+        
+        \Magento\Framework\App\ObjectManager::getInstance()->get('\Icrm\Payone\Request\Base')->preSend($this, $oPayment);
+              
         if ($oPayment !== null && $oPayment->hasCustomConfig()) { // if payment type doesnt use the global settings
             $this->addCustomParameters($oPayment); // add custom connection settings
         }
