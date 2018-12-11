@@ -255,7 +255,8 @@ abstract class BaseMethod extends AbstractMethod
         $this->checkoutSession = $checkoutSession;
         $this->debitRequest = $debitRequest;
         $this->captureRequest = $captureRequest;
-        $this->authorizationRequest = $authorizationRequest;
+        $this->authorizationRequest = \Magento\Framework\App\ObjectManager::getInstance()
+            ->get('Payone\Core\Model\Api\Request\AuthorizationFactory')->create();
         $this->savedPaymentData = $savedPaymentData;
     }
 
