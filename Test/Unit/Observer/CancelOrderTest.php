@@ -24,14 +24,17 @@
  * @link      http://www.payone.de
  */
 
-namespace Payone\Core\Test\Unit\Block\Adminhtml;
+namespace Payone\Core\Test\Unit\Observer;
 
-use Payone\Core\Block\Adminhtml\Information as ClassToTest;
+use Payone\Core\Model\Handler\Cancellation;
+use Payone\Core\Observer\CancelOrder as ClassToTest;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
+use Magento\Framework\Event\Observer;
 use Payone\Core\Test\Unit\BaseTestCase;
 use Payone\Core\Test\Unit\PayoneObjectManager;
 
-class InformationTest extends BaseTestCase
+
+class CancelOrderTest extends BaseTestCase
 {
     /**
      * @var ClassToTest
@@ -47,20 +50,20 @@ class InformationTest extends BaseTestCase
     {
         $this->objectManager = $this->getObjectManager();
 
-        $this->classToTest = $this->objectManager->getObject(ClassToTest::class);
+        $cancellation = $this->getMockBuilder(Cancellation::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $this->classToTest = $this->objectManager->getObject(ClassToTest::class, [
+            'cancellation' => $cancellation
+        ]);
     }
 
-    public function testGetHeader()
+    public function testExecute()
     {
-        $result = $this->classToTest->getHeader();
-        $expected = 'Information';
-        $this->assertEquals($expected, $result);
-    }
+        $observer = $this->getMockBuilder(Observer::class)->disableOriginalConstructor()->getMock();
 
-    public function testGetPayoneUrl()
-    {
-        $result = $this->classToTest->getPayoneUrl();
-        $expected = '//www.payone.de/embedded-sites/magento/information/';
-        $this->assertEquals($expected, $result);
+        $result = $this->classToTest->execute($observer);
+        $this->assertNull($result);
     }
 }

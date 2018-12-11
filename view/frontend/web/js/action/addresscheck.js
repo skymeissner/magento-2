@@ -36,19 +36,7 @@ define([
     /** Override default place order action and add agreement_ids to request */
     return function (addressData, isBillingAddress, baseView, type) {
         var serviceUrl;
-
-        let customAttributes = ['address_extra', 'title_academic'];
-        customAttributes.forEach(function(attr) {
-            if (addressData[attr]) {
-                addressData.custom_attributes = addressData.custom_attributes || [];
-                addressData.custom_attributes.push({
-                    attribute_code: attr,
-                    value: addressData[attr],
-                });
-                delete(addressData[attr]);
-            }
-        });
-
+        
         if (!customer.isLoggedIn()) {
             serviceUrl = urlBuilder.createUrl('/guest-carts/:quoteId/payone-addresscheck', {
                 quoteId: quote.getQuoteId()

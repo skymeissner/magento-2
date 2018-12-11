@@ -200,6 +200,13 @@ abstract class BaseMethod extends AbstractMethod
     protected $authorizationRequest;
 
     /**
+     * Resource model for saved payment data
+     *
+     * @var \Payone\Core\Model\ResourceModel\SavedPaymentData
+     */
+    protected $savedPaymentData;
+
+    /**
      * Constructor
      *
      * @param \Magento\Framework\Model\Context                        $context
@@ -215,7 +222,8 @@ abstract class BaseMethod extends AbstractMethod
      * @param \Magento\Checkout\Model\Session                         $checkoutSession
      * @param \Payone\Core\Model\Api\Request\Debit                    $debitRequest
      * @param \Payone\Core\Model\Api\Request\Capture                  $captureRequest
-     * @param \Payone\Core\Model\Api\Request\AuthorizationFactory     $authorizationRequestFactory
+     * @param \Payone\Core\Model\Api\Request\Authorization            $authorizationRequest
+     * @param \Payone\Core\Model\ResourceModel\SavedPaymentData       $savedPaymentData
      * @param \Magento\Framework\Model\ResourceModel\AbstractResource $resource
      * @param \Magento\Framework\Data\Collection\AbstractDb           $resourceCollection
      * @param array                                                   $data
@@ -234,7 +242,8 @@ abstract class BaseMethod extends AbstractMethod
         \Magento\Checkout\Model\Session $checkoutSession,
         \Payone\Core\Model\Api\Request\Debit $debitRequest,
         \Payone\Core\Model\Api\Request\Capture $captureRequest,
-        \Payone\Core\Model\Api\Request\AuthorizationFactory $authorizationRequestFactory,
+        \Payone\Core\Model\Api\Request\Authorization $authorizationRequest,
+        \Payone\Core\Model\ResourceModel\SavedPaymentData $savedPaymentData,
         \Magento\Framework\Model\ResourceModel\AbstractResource $resource = null,
         \Magento\Framework\Data\Collection\AbstractDb $resourceCollection = null,
         array $data = []
@@ -246,7 +255,8 @@ abstract class BaseMethod extends AbstractMethod
         $this->checkoutSession = $checkoutSession;
         $this->debitRequest = $debitRequest;
         $this->captureRequest = $captureRequest;
-        $this->authorizationRequest = $authorizationRequestFactory->create();
+        $this->authorizationRequest = $authorizationRequest;
+        $this->savedPaymentData = $savedPaymentData;
     }
 
     /**
@@ -279,7 +289,9 @@ abstract class BaseMethod extends AbstractMethod
     public function authorize(InfoInterface $payment, $amount)
     {
         $oReturn = parent::authorize($payment, $amount); // execute Magento parent authorization
-        $this->sendPayoneAuthorization($payment, $amount); // send auth request to PAYONE
+        if (!$this->checkoutSession->getPayoneCreatingSubstituteOrder()) {
+            $this->sendPayoneAuthorization($payment, $amount); // send auth request to PAYONE
+        }
         return $oReturn; // return magento parent auth value
     }
 

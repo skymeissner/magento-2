@@ -1,4 +1,5 @@
 <?php
+
 /**
  * PAYONE Magento 2 Connector is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,9 +23,42 @@
  * @license   <http://www.gnu.org/licenses/> GNU Lesser General Public License
  * @link      http://www.payone.de
  */
-?>
-<div style="width:100%;">
-    <iframe src="<?php echo $this->getPayoneUrl(); ?>" width="100%" frameborder="0" border="0"
-            style="min-height:1300px; height: 100%; overflow: hidden;">
-    </iframe>
-</div>
+
+namespace Payone\Core\Observer;
+
+use Magento\Framework\Event\ObserverInterface;
+use Magento\Framework\Event\Observer;
+use Payone\Core\Model\Handler\Cancellation;
+
+/**
+ * Event class to prevent the basket from getting lost with redirect payment types
+ * when the customer uses the browser back-button
+ */
+class CancelOrder implements ObserverInterface
+{
+    /**
+     * Checkout session
+     *
+     * @var Cancellation
+     */
+    protected $cancellation;
+
+    /**
+     * Constructor
+     *
+     * @param Cancellation $cancellation
+     */
+    public function __construct(Cancellation $cancellation)
+    {
+        $this->cancellation = $cancellation;
+    }
+
+    /**
+     * @param  Observer $observer
+     * @return $this
+     */
+    public function execute(Observer $observer)
+    {
+        $this->cancellation->handle();
+    }
+}

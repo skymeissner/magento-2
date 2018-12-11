@@ -1,4 +1,5 @@
 <?php
+
 /**
  * PAYONE Magento 2 Connector is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,10 +23,13 @@
  * @license   <http://www.gnu.org/licenses/> GNU Lesser General Public License
  * @link      http://www.payone.de
  */
+
 namespace Payone\Core\Model\Methods;
+
 use Payone\Core\Model\PayoneConfig;
 use Magento\Sales\Model\Order;
 use Magento\Framework\DataObject;
+
 /**
  * Model for debit payment method
  */
@@ -37,24 +41,28 @@ class Debit extends PayoneMethod
      * @var string
      */
     protected $_code = PayoneConfig::METHOD_DEBIT;
+
     /**
      * Info instructions block path
      *
      * @var string
      */
     protected $_infoBlockType = 'Payone\Core\Block\Info\Debit';
+
     /**
      * Info instructions block path
      *
      * @var string
      */
     protected $_formBlockType = 'Payone\Core\Block\Form\Debit';
+
     /**
      * Clearingtype for PAYONE authorization request
      *
      * @var string
      */
     protected $sClearingtype = 'elv';
+
     /**
      * Return parameters specific to this payment type
      *
@@ -64,6 +72,7 @@ class Debit extends PayoneMethod
     public function getPaymentSpecificParameters(Order $oOrder)
     {
         $oInfoInstance = $this->getInfoInstance();
+
         $aParams = [
             'bankcountry' => $oInfoInstance->getAdditionalInformation('bank_country'),
             'iban' => $oInfoInstance->getAdditionalInformation('iban'),
@@ -71,6 +80,7 @@ class Debit extends PayoneMethod
         if ($oInfoInstance->getAdditionalInformation('bic')) {
             $aParams['bic'] = $oInfoInstance->getAdditionalInformation('bic');
         }
+
         $aMandate = $this->checkoutSession->getPayoneMandate();
         if ($aMandate && array_key_exists('mandate_identification', $aMandate) !== false &&
             $aMandate['mandate_status'] == 'pending'
@@ -80,6 +90,7 @@ class Debit extends PayoneMethod
         $this->checkoutSession->unsPayoneMandate();
         return $aParams;
     }
+
     /**
      * Add the checkout-form-data to the checkout session
      *
@@ -89,10 +100,12 @@ class Debit extends PayoneMethod
     public function assignData(DataObject $data)
     {
         parent::assignData($data);
+
         $oInfoInstance = $this->getInfoInstance();
         $oInfoInstance->setAdditionalInformation('bank_country', $this->toolkitHelper->getAdditionalDataEntry($data, 'bank_country'));
         $oInfoInstance->setAdditionalInformation('iban', $this->toolkitHelper->getAdditionalDataEntry($data, 'iban'));
         $oInfoInstance->setAdditionalInformation('bic', $this->toolkitHelper->getAdditionalDataEntry($data, 'bic'));
+
         return $this;
     }
 }
