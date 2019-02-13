@@ -140,7 +140,9 @@ class Appointed implements ObserverInterface
         $oOrder->save();
 
         if ($this->baseHelper->getConfigParam('send_invoice_email', 'emails')) {
-            $this->invoiceSender->send($oInvoice);
+            if (!$oInvoice->getEmailSent()) {
+                $this->invoiceSender->send($oInvoice);
+            }
         }
     }
 }
