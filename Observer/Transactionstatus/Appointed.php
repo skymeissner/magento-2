@@ -131,6 +131,11 @@ class Appointed implements ObserverInterface
             return;
         }
 
+        // icrm hack - no automatic invoices for orders with zero total
+        if (!($oOrder->getGrandTotal() > 0)) {
+            return;
+        }
+
         $oInvoice = $this->invoiceService->prepareInvoice($oOrder);
         $oInvoice->setRequestedCaptureCase(Invoice::NOT_CAPTURE);
         $oInvoice->setTransactionId($oOrder->getPayment()->getLastTransId());
